@@ -245,7 +245,8 @@ namespace pipeann {
                               
     // 插入线程在 L1[v] 达到合并阈值时调用
     inline void enqueue_merge_node(uint32_t id) {
-      merge_queue_.push(id);
+      // 这里不直接操作队列，而是走封装好的 push，里面会负责 push_notify_all
+      push(id);
     }
 
     // delta pruning.
@@ -688,15 +689,19 @@ namespace pipeann {
 
     // 用于触发 L1 合并的队列：插入线程 push 节点 id，后台线程 pop
     void push(uint32_t);
-    bool try_pop(uint32_t &);   // 非阻塞
+    bool try_pop(uint32_t &);      // 非阻塞
     void pop_blocking(uint32_t &); // 阻塞直到拿到一个 id
-    BlockingQueue<uint32_t> merge_queue_;
 
-    // 结束标志，析构时用于通知 merge 线程退出
+    // merge 队列的“空值”，不能作为真实的节点 id 使用
+    static constexpr uint32_t MERGE_NULL_ID      = std::numeric_limits<uint32_t>::max();
+    static constexpr uint32_t MERGE_TERMINATE_ID = std::numeric_limits<uint32_t>::max() - 1;
+
+    // 用 ConcurrentQueue 实现的阻塞队列
+    ConcurrentQueue<uint32_t> merge_queue_;
+
+    // 结束标志，析构时用于通知 merge 线程退出（后面实现退出逻辑时会用到）
     std::atomic<bool> merge_stop_{false};
 
-    // 特殊的“终止哨兵”
-    static constexpr uint32_t MERGE_TERMINATE_ID = std::numeric_limits<uint32_t>::max();
 
     bool data_is_normalized = false;
 

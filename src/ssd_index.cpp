@@ -14,6 +14,9 @@
 #include <sys/syscall.h>
 #include "utils/tsl/robin_set.h"
 
+#include <algorithm>
+#include <map>
+
 namespace pipeann {
   template<typename T>
   DiskNode<T>::DiskNode(uint32_t id, T *coords, uint32_t *nhood) : id(id) {
@@ -70,6 +73,118 @@ namespace pipeann {
     }
   }
 
+  // --- merge 队列的简单封装 ---
+  template<typename T, typename TagT>
+  void SSDIndex<T, TagT>::push(uint32_t id) {
+    // 简单过滤：不要把空值推到队列里
+    if (id == MERGE_NULL_ID) {
+      return;
+    }
+    merge_queue_.push(id);
+    // 唤醒在 pop_blocking 中等待的线程
+    merge_queue_.push_notify_all();
+  }
+
+  template<typename T, typename TagT>
+  bool SSDIndex<T, TagT>::try_pop(uint32_t &id) {
+    // ConcurrentQueue 的 pop 是非阻塞的，队列空时会返回 null_T
+    id = merge_queue_.pop();
+    if (id == merge_queue_.null_T) {
+      return false;
+    }
+    return true;
+  }
+
+  template<typename T, typename TagT>
+  void SSDIndex<T, TagT>::pop_blocking(uint32_t &id) {
+    // 先尝试一次 pop，如果是空值，就进入等待
+    id = merge_queue_.pop();
+    while (id == merge_queue_.null_T) {
+      // 没有新的任务，等待 push 通知
+      merge_queue_.wait_for_push_notify();
+      id = merge_queue_.pop();
+    }
+  }
+
+
+  // --- L1 增量图合并线程：从队列取节点，按扇区分组，然后调用 merge_nodes_on_sector ---
+
+  template<typename T, typename TagT>
+  void SSDIndex<T, TagT>::merge_worker_thread() {
+    LOG(INFO) << "SSDIndex merge worker thread started.";
+
+    // 为当前线程创建 I/O 上下文（io_uring / AIO）
+    void *ctx = reader->get_ctx();
+
+    // 单次批处理最多从队列拉这么多点，可以后面再调参
+    constexpr size_t kMergeBatchSize = 1024;
+
+    std::vector<uint32_t> batch;
+    batch.reserve(kMergeBatchSize);
+
+    while (true) {
+      uint32_t id = 0;
+
+      // 1）阻塞式拿到至少一个节点 id
+      pop_blocking(id);
+
+      // 收到终止哨兵，直接退出
+      if (id == MERGE_TERMINATE_ID) {
+        LOG(INFO) << "Merge worker thread received terminate sentinel.";
+        break;
+      }
+
+      // 简单过滤非法 id
+      if (id < num_points) {
+        batch.push_back(id);
+      }
+
+      // 2）非阻塞地尽可能多地把当前队列里的任务拉出来，形成一个 batch
+      uint32_t tmp = 0;
+      while (batch.size() < kMergeBatchSize && try_pop(tmp)) {
+        if (tmp == MERGE_TERMINATE_ID) {
+          // 如果还有任务没处理完，就把终止哨兵丢回去，留给下一轮退出
+          push(MERGE_TERMINATE_ID);
+          break;
+        }
+        if (tmp < num_points) {
+          batch.push_back(tmp);
+        }
+      }
+
+      if (batch.empty()) {
+        // 有可能刚才只拿到了终止哨兵或非法 id，继续下一轮
+        continue;
+      }
+
+      // 3）去重：同一个点在队列里出现多次，只合并一次
+      std::sort(batch.begin(), batch.end());
+      batch.erase(std::unique(batch.begin(), batch.end()), batch.end());
+
+      // 4）按扇区号分组：sector -> [nodes...]
+      std::map<uint64_t, std::vector<uint32_t>> sector_nodes;
+      for (uint32_t vid : batch) {
+        uint64_t sector = node_sector_no(vid);  // 利用已有的 id -> loc -> sector 映射
+        sector_nodes[sector].push_back(vid);
+      }
+
+      // 5）对每个扇区调用真正的合并逻辑
+      //   读盘 + 抽干 L1 增量邻居 + pool 合并 + prune_neighbors_pq + BgTask + wbc_write
+      for (auto &kv : sector_nodes) {
+        uint64_t sector = kv.first;
+        const std::vector<uint32_t> &nodes = kv.second;
+        merge_nodes_on_sector(sector, nodes, ctx);
+      }
+
+      // 6）清空 batch，处理下一轮
+      batch.clear();
+    }
+
+    LOG(INFO) << "SSDIndex merge worker thread exited.";
+  }
+
+
+
   template<typename T, typename TagT>
   void SSDIndex<T, TagT>::copy_index(const std::string &prefix_in, const std::string &prefix_out) {
     LOG(INFO) << "Copying disk index from " << prefix_in << " to " << prefix_out;
@@ -99,6 +214,7 @@ namespace pipeann {
     uint64_t n_buffers = n_threads * 2;
     LOG(INFO) << "Init buffers for " << n_threads << " threads, setup " << n_buffers << " buffers.";
     this->thread_data_queue.null_T = nullptr;
+    this->merge_queue_.null_T = MERGE_NULL_ID;
     for (uint64_t i = 0; i < n_buffers; i++) {
       QueryBuffer<T> *data = new QueryBuffer<T>();
       this->init_query_buf(*data);

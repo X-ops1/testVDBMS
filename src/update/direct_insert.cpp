@@ -150,7 +150,153 @@ namespace pipeann {
     return target_id;
   }
 
-  // 后台线程 ！！！！
+  // 对同一个 sector 上的一批点做：
+  //   L0[v] + L1[v] → 候选集 cand → delta_prune_neighbors_pq → 新的 L0[v]
+  // 然后把这一整页写回（通过 BgTask 交给后台线程写盘）
+  template<class T, class TagT>
+  void SSDIndex<T, TagT>::merge_nodes_on_sector(uint64_t sector,
+                                                const std::vector<uint32_t> &nodes,
+                                                void *ctx) {
+    if (nodes.empty()) {
+      return;
+    }
+
+    // 1. 拿一个 QueryBuffer，当成本次 merge 的 scratch
+    //    这里传 nullptr 就不会去填充 aligned_query_T
+    QueryBuffer<T> *buf = this->pop_query_buf(nullptr);
+    char *sector_buf = buf->sector_scratch;
+    uint8_t *thread_pq_buf = buf->nbr_vec_scratch;  // PQ 剪枝用的 scratch
+
+    // 2. 页级锁：锁住这一页，防止并发写
+    std::vector<IORequest> pages_to_rmw;
+    pages_to_rmw.emplace_back(
+        IORequest(sector * SECTOR_LEN, this->size_per_io, nullptr, 0, 0));
+    // page_lock_table 是 SparseLockTable<uint64_t>，直接用旧逻辑加锁
+    std::vector<uint64_t> pages_locked = v2::lockReqs(this->page_lock_table, pages_to_rmw);
+
+    // 3. 读入这一页（带 page cache 的 read_alloc）
+    std::vector<IORequest> reads;
+    reads.emplace_back(
+        IORequest(sector * SECTOR_LEN, this->size_per_io, sector_buf, 0, 0));
+    std::vector<uint64_t> read_page_ref;
+    this->reader->read_alloc(reads, ctx, &read_page_ref);
+
+    // 4. 对属于这一页的每个点 v 做「L0 + L1 → 重剪枝」
+    auto *l1 = this->l1_table_;
+
+    for (uint32_t id : nodes) {
+      // 4.0 保护一下非法 id / loc
+      uint64_t loc = this->id2loc(id);
+      if (loc >= this->cur_loc) {
+        continue;  // 已经被删掉或无效
+      }
+      if (this->loc_sector_no(loc) != sector) {
+        continue;  // 双重保险：只处理确实在这一页上的点
+      }
+
+      // 4.1 在该页 buffer 中定位到该点的 node 区域
+      char *node_buf = this->offset_to_loc(sector_buf, loc);
+      DiskNode<T> node(id,
+                      this->offset_to_node_coords(node_buf),
+                      this->offset_to_node_nhood(node_buf));
+
+      uint32_t old_deg = node.nnbrs;
+      uint32_t *old_nbrs = node.nbrs;
+
+      // 4.2 收集候选邻居：旧的 L0 邻居
+      std::vector<uint32_t> cand;
+      cand.reserve(old_deg + 32);
+
+      for (uint32_t i = 0; i < old_deg; ++i) {
+        uint32_t nbr = old_nbrs[i];
+        if (nbr != id) {  // 自环直接跳过
+          cand.push_back(nbr);
+        }
+      }
+
+      // 4.3 把 L1[v] 的增量邻居抽干并追加到候选里
+      if (l1 != nullptr) {
+        std::vector<uint32_t> delta;
+        l1->drain_neighbors(id, delta);  // L1[id] → delta，并清空 L1[id]
+        cand.insert(cand.end(), delta.begin(), delta.end());
+      }
+
+      if (cand.empty()) {
+        // 没有邻居了，直接把 L0 清空
+        node.nnbrs = 0;
+        *(node.nbrs - 1) = 0;  // DiskNode 约定：nbrs[-1] 存 nnbrs
+        continue;
+      }
+
+      // 4.4 去重 + 去 self-loop
+      std::sort(cand.begin(), cand.end());
+      cand.erase(std::unique(cand.begin(), cand.end()), cand.end());
+      cand.erase(std::remove(cand.begin(), cand.end(), id), cand.end());
+
+      if (cand.empty()) {
+        node.nnbrs = 0;
+        *(node.nbrs - 1) = 0;
+        continue;
+      }
+
+      if (cand.size() > MAX_N_EDGES) {
+        cand.resize(MAX_N_EDGES);
+      }
+
+      // 4.5 调用基于 PQ 的 delta 剪枝，得到新的 L0[v]
+      std::vector<uint32_t> new_nhood;
+      new_nhood.reserve(cand.size());
+
+      // 这个函数在 prune_neighbors.cpp 里已经实现，
+      // 负责：
+      //   1）用 PQ 估计 dist(v, u)
+      //   2）做三角预筛 + occlusion
+      //   3）把结果写到 new_nhood
+      this->delta_prune_neighbors_pq(id, cand, new_nhood, thread_pq_buf);
+
+      // 4.6 把新的邻居列表写回 page buffer 里的 node
+      node.nnbrs = static_cast<uint32_t>(new_nhood.size());
+      *(node.nbrs - 1) = node.nnbrs;
+      if (!new_nhood.empty()) {
+        memcpy(node.nbrs,
+              new_nhood.data(),
+              node.nnbrs * sizeof(uint32_t));
+      }
+
+      // 如果后面你给 PQ 邻接（nbr_handler）增加 “set_nbrs / update_nbrs” 接口，
+      // 可以在这里同步 PQ 图，比如：
+      //
+      //   this->nbr_handler->update_nbrs(id, new_nhood.data(), node.nnbrs);
+      //
+      // 为了不和现有接口冲突，这里先不调用任何 PQ 更新函数。
+    }
+
+    // 5. 把修改过的这一页复制到 update_buf，交给后台写盘线程
+    //    update_buf 在 bg_io_thread 里写完之后会被 aligned_free，并把 buf 归还 buffer 池。
+    assert(buf->update_buf == nullptr);
+    pipeann::alloc_aligned(reinterpret_cast<void **>(&buf->update_buf),
+                          this->size_per_io,
+                          SECTOR_LEN);
+    memcpy(buf->update_buf, sector_buf, this->size_per_io);
+
+    char *update_buf = buf->update_buf;
+
+    // 6. 封装 BgTask，异步写盘 + 解锁 + deref cache
+    auto *task = new BgTask();
+    task->thread_data = buf;
+    task->terminate = false;
+
+    task->writes.clear();
+    task->writes.emplace_back(
+        IORequest(sector * SECTOR_LEN, this->size_per_io, update_buf, 0, 0));
+
+    task->pages_to_unlock = std::move(pages_locked);
+    task->pages_to_deref = std::move(read_page_ref);
+
+    this->bg_tasks.push(task);
+    this->bg_tasks.push_notify_all();
+  }
+
   template<class T, class TagT>
   void SSDIndex<T, TagT>::bg_io_thread() {
     auto ctx = reader->get_ctx();
