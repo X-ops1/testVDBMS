@@ -10,9 +10,6 @@
 
 
 namespace v2 {
-
-// Incremental neighbor table for G1:
-//
 // 对每个点 v 维护一个小的邻居表 L1[v]，用于存储 “new -> v” 的回边。
 // 特性：
 //  - |L1[v]| <= fanout_B_ （软上限）
@@ -21,10 +18,11 @@ namespace v2 {
 //  - 能快速枚举目前 L1[v] 非空的点，用于后台重构
 //
 // 注意：
-//   这里假设构造时你知道一个“最大点数 max_nodes”，我们一次性
+//   这里假设构造时一个最大点数 max_nodes
 //   为 [0, max_nodes) 分配 slots，这样 nodes_ 向量就不会再 resize，
 //   省掉一堆并发上的复杂度。
 //   DynamicSSDIndex 里可以用 base_n + max_inserts 来作为 max_nodes。
+
 class L1NeighborTable {
  public:
   using NodeId = uint32_t;
@@ -112,8 +110,7 @@ class L1NeighborTable {
     return true;
   }
 
-  // 方便版：不传轻剪函数时，用一个非常简单的策略：
-  // 超过 B 就保留最后 B 个（比较粗暴，但先跑起来用没问题）。
+  // 方便版：不传轻剪函数时，用一个非常简单的策略：超过 B 就保留最后 B 个。
   bool add_backlink(NodeId v, NodeId new_id) {
     auto default_prune = [this](NodeId /*v*/, std::vector<NodeId> &nbrs) {
       if (nbrs.size() > fanout_B_) {
@@ -213,7 +210,7 @@ class L1NeighborTable {
   uint32_t fanout_B_{0};
   std::vector<NodeDelta> nodes_;
 
-  // 分片锁：避免给每个点搞一个 mutex（那样会爆内存）。
+  // 分片锁：避免给每个点搞一个 mutex。
   mutable std::vector<std::shared_timed_mutex> lock_shards_;
 
   // 当前 L1[v] 非空的点的集合。

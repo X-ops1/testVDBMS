@@ -204,7 +204,7 @@ namespace pipeann {
   template<typename T, typename TagT>
   void SSDIndex<T, TagT>::load_page_layout(const std::string &index_prefix, const uint64_t nnodes_per_sector,
                                            const uint64_t num_points) {
-    // 方法 A：完全忽略 partition 文件，使用等距映射。
+    // 完全忽略 partition 文件，使用等距映射。
     // 这里也干脆去掉 OpenMP 并行，反正只初始化一次，3M 点也就几十毫秒级。
     (void) index_prefix;      // 不再使用 partition.bin
     (void) nnodes_per_sector; // 不再依赖 C
@@ -225,7 +225,6 @@ namespace pipeann {
 
     // npts..(nslots-1)：是最后一页对齐产生的 padding，统一标为无效
     // 上面 assign 已经全部设成 kInvalidID 了，这里实际上可以不写。
-
     LOG(INFO) << "Page layout loaded with equal mapping (no per-page reserved slots). "
               << "Npoints=" << npts << " Cur_loc=" << nslots;
   }

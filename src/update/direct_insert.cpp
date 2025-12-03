@@ -78,7 +78,6 @@ namespace pipeann {
     set_loc2id(loc, new_id);
 
     // -------- 4.2 准备一个 sector buffer，写入新点的 node record --------
-
     // 先算出这个 loc 所在的 sector 和在文件里的偏移
     uint64_t sector = loc_sector_no(loc);      // 已有辅助函数
     uint64_t off    = sector * SECTOR_LEN;     // 一个 sector = SECTOR_LEN 字节
@@ -111,7 +110,7 @@ namespace pipeann {
                      offset_to_node_coords(node_buf),
                      offset_to_node_nhood(node_buf));
 
-    // 写向量（这里用的是归一化后的 point，你也可以按需要换成 point1）
+    // 写向量，这里用的是归一化后的 point
     memcpy(node.coords, point, data_dim * sizeof(T));
 
     // 写邻居数量和邻居 ID

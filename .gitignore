@@ -1,12 +1,3 @@
-build/
-.vscode/
-indices/
-.cache/
-data/*
-data-example/*
-figures/*
-scripts/tests-pipeann/drop_cache
-pipeann/*.so
-pipeann/__pycache__/*
-pipeann.egg-info/
-dist/
+build
+data
+data&index

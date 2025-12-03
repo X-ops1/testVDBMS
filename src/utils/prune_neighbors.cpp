@@ -215,7 +215,7 @@ namespace pipeann {
     if (nbrs.size() != this->range + 1) {
       LOG(WARNING) << "L1 prune: neighbors size " << nbrs.size()
                   << " != range + 1 (" << this->range + 1 << ")";
-      return;// 直接 return
+      return;
     }
 
     const size_t pool_size = nbrs.size();
