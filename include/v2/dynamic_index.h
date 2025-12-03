@@ -12,6 +12,9 @@
 #include <string>
 #include <unordered_map>
 
+
+#include "v2/l1_neighbor_table.h"
+
 namespace pipeann {
 
   template<typename T, typename TagT = uint32_t>
@@ -52,6 +55,8 @@ namespace pipeann {
 
     std::shared_ptr<AlignedFileReader> reader = nullptr;
     SSDIndex<T, TagT> *_disk_index = nullptr;
+
+    v2::L1NeighborTable *l1_table_ = nullptr; 
 
     pipeann::Metric _dist_metric;
     Distance<T> *_dist_comp;

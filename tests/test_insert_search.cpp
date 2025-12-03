@@ -95,7 +95,7 @@ inline uint64_t save_bin_test(const std::string &filename, T *id, float *dist, s
 template<typename T, typename TagT>
 void sync_search_kernel(T *query, size_t query_num, size_t query_dim, const int recall_at, uint32_t mem_L, uint64_t L,
                         uint32_t beam_width, pipeann::DynamicSSDIndex<T, TagT> &sync_index, std::string &truthset_file,
-                        bool merged, bool calRecall, double &disk_io) {
+                        bool merged, bool calRecall, double &disk_io, uint64_t base_npts) {
   if (NUM_SEARCH_THREADS == 0) {
     return;
   }
@@ -114,6 +114,10 @@ void sync_search_kernel(T *query, size_t query_num, size_t query_dim, const int 
 
   float *query_result_dists = new float[recall_at * query_num];
   TagT *query_result_tags = new TagT[recall_at * query_num];
+
+  // >>> 新增：每个 query 的 top-k 里，磁盘点 / 增量点数量
+  std::vector<uint32_t> dyn_topk_counts(query_num, 0);
+  std::vector<uint32_t> disk_topk_counts(query_num, 0);
 
   for (uint32_t q = 0; q < query_num; q++) {
     for (uint32_t r = 0; r < (uint32_t) recall_at; r++) {
@@ -138,6 +142,21 @@ void sync_search_kernel(T *query, size_t query_num, size_t query_dim, const int 
     sync_index.search(query + i * query_dim, recall_at, mem_L, L, beam_width, query_result_tags + i * recall_at,
                       query_result_dists + i * recall_at, stats + i, true);
 
+    // >>> 新增：统计第 i 个 query 的 top-k 里，磁盘点 / 增量点数量
+    uint32_t dyn_cnt = 0, disk_cnt = 0;
+    for (uint32_t r = 0; r < (uint32_t) recall_at; r++) {
+      TagT tag = query_result_tags[i * recall_at + r];
+      if (tag == std::numeric_limits<TagT>::max())
+        continue;  // 这个位置没有有效结果
+      if ((uint64_t) tag >= base_npts)
+        dyn_cnt++;
+      else
+        disk_cnt++;
+    }
+    dyn_topk_counts[i] = dyn_cnt;
+    disk_topk_counts[i] = disk_cnt;
+    // <<< 新增结束
+
     latency_stats[i] = stats[i].total_us / 1000.0;  // convert to ms
     if (search_mode == BEAM_SEARCH) {
       // Here we follow the original paper 's settings...
@@ -160,6 +179,19 @@ void sync_search_kernel(T *query, size_t query_num, size_t query_dim, const int 
   float mean_ios =
       (float) pipeann::get_mean_stats(stats, query_num, [](const pipeann::QueryStats &stats) { return stats.n_ios; });
 
+  // >>> 新增：统计整体平均的 top-k 构成
+  uint64_t total_dyn = 0, total_disk = 0, q_with_dyn = 0;
+  for (size_t i = 0; i < query_num; i++) {
+    total_dyn += dyn_topk_counts[i];
+    total_disk += disk_topk_counts[i];
+    if (dyn_topk_counts[i] > 0)
+      q_with_dyn++;
+  }
+  float avg_dyn_topk = (float) total_dyn / (float) query_num;
+  float avg_disk_topk = (float) total_disk / (float) query_num;
+  float frac_q_with_dyn = (float) q_with_dyn / (float) query_num;
+  // <<< 新增结束
+
   std::sort(latency_stats.begin(), latency_stats.end());
   std::cerr << std::setw(4) << L << std::setw(12) << qps << std::setw(18)
             << ((float) std::accumulate(latency_stats.begin(), latency_stats.end(), 0.0f)) / (float) query_num
@@ -169,6 +201,12 @@ void sync_search_kernel(T *query, size_t query_num, size_t query_dim, const int 
             << (float) latency_stats[(uint64_t) (0.99 * ((double) query_num))] << std::setw(12)
             << (float) latency_stats[(uint64_t) (0.999 * ((double) query_num))] << std::setw(12) << recall
             << std::setw(12) << mean_ios << std::endl;
+
+  // >>> 新增
+  LOG(INFO) << "[DEBUG] avg dyn in top-" << recall_at << " = " << avg_dyn_topk
+          << ", avg disk in top-" << recall_at << " = " << avg_disk_topk
+          << ", frac queries with dyn result = " << frac_q_with_dyn;
+  // <<< 新增结束
 
   LOG(INFO) << "search current time: " << current_time;
   disk_io = mean_ios;
@@ -259,6 +297,9 @@ void update(const std::string &data_bin, const unsigned L_disk, int vecs_per_ste
   pipeann::DynamicSSDIndex<T, TagT> sync_index(paras, index_prefix, index_prefix + "_merge", dist_cmp, metric,
                                                search_mode, (search_mem_L > 0));
 
+  //索引里面点的数量
+  uint64_t index_npts = sync_index._disk_index->num_points;
+
   LOG(INFO) << "Searching before inserts: ";
 
   uint64_t res = 0;
@@ -271,13 +312,13 @@ void update(const std::string &data_bin, const unsigned L_disk, int vecs_per_ste
   for (size_t j = 0; j < Lsearch.size(); ++j) {
     double diskio = 0;
     sync_search_kernel(query, query_num, query_dim, recall_at, search_mem_L, Lsearch[j], search_beam_width, sync_index,
-                       currentFileName, false, true, diskio);
+                       currentFileName, false, true, diskio, index_npts);
     ref_diskio.push_back(diskio);
   }
 
   int inMemorySize = 0;
   std::future<void> merge_future;
-  uint64_t index_npts = sync_index._disk_index->num_points;
+
   for (int i = 0; i < num_steps; i++) {
     LOG(INFO) << "Batch: " << i << " Total Batch : " << num_steps;
     std::vector<unsigned> insert_vec;
@@ -304,7 +345,7 @@ void update(const std::string &data_bin, const unsigned L_disk, int vecs_per_ste
         double dummy;
         // for (uint32_t j = 0; j < Lsearch.size(); ++j) {
         sync_search_kernel(query, query_num, query_dim, recall_at, search_mem_L, Lsearch[0], search_beam_width,
-                           sync_index, currentFileName, false, false, dummy);
+                           sync_index, currentFileName, false, false, dummy, index_npts);
         sleep(1);
         // }
         total_queries += query_num;
@@ -326,7 +367,7 @@ void update(const std::string &data_bin, const unsigned L_disk, int vecs_per_ste
     for (size_t j = 0; j < Lsearch.size(); ++j) {
       double diskio = 0;
       sync_search_kernel(query, query_num, query_dim, recall_at, search_mem_L, Lsearch[j], search_beam_width,
-                         sync_index, currentFileName, false, true, diskio);
+                         sync_index, currentFileName, false, true, diskio, index_npts);
       disk_ios.push_back(diskio);
     }
 

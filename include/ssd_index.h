@@ -23,7 +23,11 @@ constexpr int kIndexSizeFactor = 2;
 
 enum SearchMode { BEAM_SEARCH = 0, PAGE_SEARCH = 1, PIPE_SEARCH = 2, CORO_SEARCH = 3 };
 
+namespace v2 {
+  class L1NeighborTable;   // 前向声明
+}
 namespace pipeann {
+
   template<typename T, typename TagT = uint32_t>
   class SSDIndex {
    public:
@@ -31,6 +35,9 @@ namespace pipeann {
              AbstractNeighbor<T> *nbr = new PQNeighbor<T>(), bool tags = false, Parameters *parameters = nullptr);
 
     ~SSDIndex();
+
+    void set_l1_table(v2::L1NeighborTable *t) { l1_table_ = t; }
+    v2::L1NeighborTable *get_l1_table() const { return l1_table_; }
 
     // returns region of `node_buf` containing [COORD(T)]
     inline T *offset_to_node_coords(const char *node_buf) {
@@ -230,6 +237,17 @@ namespace pipeann {
                          uint8_t *scratch);
     void prune_neighbors_pq(std::vector<Neighbor> &pool, std::vector<uint32_t> &pruned_list, uint8_t *scratch);
 
+    // 增量图合并线程及函数
+    void merge_worker_thread();
+    void merge_nodes_on_sector(uint64_t sector,
+                              const std::vector<uint32_t> &nodes,
+                              void *ctx);
+                              
+    // 插入线程在 L1[v] 达到合并阈值时调用
+    inline void enqueue_merge_node(uint32_t id) {
+      merge_queue_.push(id);
+    }
+
     // delta pruning.
     struct TriangleNeighbor {
       unsigned id;
@@ -246,6 +264,15 @@ namespace pipeann {
     void delta_prune_neighbors_pq(std::vector<TriangleNeighbor> &pool, std::vector<uint32_t> &pruned_list,
                                   uint8_t *scratch, int tgt_idx);
     void reload(const char *index_prefix, uint32_t num_threads);
+
+
+    // 轻剪 L1[v]：复用 delta_prune_neighbors_pq（PQ 路径）
+    // center = v, new_id = 本次刚插入的 new 节点 id
+    void prune_l1_delta(uint32_t center,
+                        uint32_t new_id,
+                        std::vector<uint32_t> &nbrs,
+                        uint8_t *scratch);
+
     // background I/O commit.
     struct BgTask {
       QueryBuffer<T> *thread_data;
@@ -657,6 +684,20 @@ namespace pipeann {
     // because going forward, we will normalize vectors when
     // asked to search with COSINE similarity. Of course, this
     // will be done only for floating point vectors.
+    v2::L1NeighborTable *l1_table_ = nullptr;   // 默认没有 L1
+
+    // 用于触发 L1 合并的队列：插入线程 push 节点 id，后台线程 pop
+    void push(uint32_t);
+    bool try_pop(uint32_t &);   // 非阻塞
+    void pop_blocking(uint32_t &); // 阻塞直到拿到一个 id
+    BlockingQueue<uint32_t> merge_queue_;
+
+    // 结束标志，析构时用于通知 merge 线程退出
+    std::atomic<bool> merge_stop_{false};
+
+    // 特殊的“终止哨兵”
+    static constexpr uint32_t MERGE_TERMINATE_ID = std::numeric_limits<uint32_t>::max();
+
     bool data_is_normalized = false;
 
     // medoid/start info
