@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <filesystem>
 
+#include <mutex>
+#include <array>
+
 #include <omp.h>
 #include <chrono>
 #include <cmath>
@@ -20,7 +23,22 @@
 #include <sys/syscall.h>
 #include "linux_aligned_file_reader.h"
 
+#include "v2/l1_neighbor_table.h"
+
 namespace pipeann {
+
+  namespace {
+    // 对扇区做 striping 粗粒度锁，避免多线程对同一 sector 做 RMW 丢更新。
+    // 这里用 2^16 个互斥锁，通过 sector_no & (N-1) 做映射，空间开销可以接受。
+    constexpr uint32_t kInsertLockStriping = 1u << 16;  // 65536
+
+    std::array<std::mutex, kInsertLockStriping> g_insert_page_locks;
+
+    inline std::mutex& page_lock(uint64_t sector_no) {
+      return g_insert_page_locks[sector_no & (kInsertLockStriping - 1)];
+    }
+  }  // anonymous namespace
+
   template<typename T, typename TagT>
   int SSDIndex<T, TagT>::insert_in_place(const T *point1, const TagT &tag, tsl::robin_set<uint32_t> *deletion_set) {
     if (unlikely(size_per_io != SECTOR_LEN)) {
@@ -49,200 +67,91 @@ namespace pipeann {
     std::vector<uint32_t> new_nhood;
     prune_neighbors(coord_map, exp_node_info, new_nhood);
     // locs[new_nhood.size()] is the target, locs[0:new_nhood.size() - 1] are the neighbors.
+
     // lock the pages to write
     aligned_free(coord_buf);
 
-    std::set<uint64_t> pages_need_to_read;
+    // -------- 4.1 只给新点分配一个新的 loc（append 到尾部） --------
+    uint32_t new_id = target_id;  // 已经在前面 cur_id++ 得到
+    uint64_t loc = cur_loc.fetch_add(1, std::memory_order_acq_rel);
+    set_id2loc(new_id, loc);
+    set_loc2id(loc, new_id);
 
-#ifdef IN_PLACE_RECORD_UPDATE
-    std::vector<uint64_t> locs;
-    for (auto &nbr : new_nhood) {
-      locs.emplace_back(id2loc(nbr));
-      pages_need_to_read.insert(node_sector_no(nbr));
-    }
-    locs.push_back(target_id);
-    pages_need_to_read.insert(loc_sector_no(target_id));
-    set_id2loc(target_id, target_id);
+    // -------- 4.2 准备一个 sector buffer，写入新点的 node record --------
 
-    // update loc2id, target_id <-> target_id.
-    cur_loc++;  // for target ID, atomic update.
-    set_loc2id(target_id, target_id);
-#else
-    auto locs = this->alloc_loc(new_nhood.size() + 1, page_ref, pages_need_to_read);
-#endif
+    // 先算出这个 loc 所在的 sector 和在文件里的偏移
+    uint64_t sector = loc_sector_no(loc);      // 已有辅助函数
+    uint64_t off    = sector * SECTOR_LEN;     // 一个 sector = SECTOR_LEN 字节
 
-    std::set<uint64_t> pages_to_rmw_set;
-    for (auto &loc : locs) {
-      pages_to_rmw_set.insert(loc_sector_no(loc));
-    }
-    std::vector<IORequest> pages_to_rmw;
-    // ordered because of std::set
-    for (auto &page_no : pages_to_rmw_set) {
-      pages_to_rmw.push_back(IORequest(page_no * SECTOR_LEN, size_per_io, nullptr, 0, 0));
-    }
-    // lock the target and the neighbor ids (ensure that sector_no does not change).
-    auto pages_locked = v2::lockReqs(this->page_lock_table, pages_to_rmw);
-    lock_vec(vec_lock_table, target_id, new_nhood);
+    // 对同一扇区做并发保护，避免多线程对同一 sector 做 RMW 时丢更新
+    std::lock_guard<std::mutex> sector_guard(page_lock(sector));
 
-    // re-read the candidate pages (mostly in the cache).
-    std::unordered_map<uint32_t, char *> page_buf_map;
+    // 为这一页申请对齐的缓冲区
+    char *page_buf = nullptr;
+    pipeann::alloc_aligned((void **) &page_buf, size_per_io, SECTOR_LEN);
 
-    // dynamically allocate update_buf to reduce memory footprint.
-    // 2x MAX_N_EDGES for read + write, the update_buf is freed in bg_io_thread.
-    assert(read_data->update_buf == nullptr);
-    pipeann::alloc_aligned((void **) &read_data->update_buf, (2 * MAX_N_EDGES + 1) * size_per_io, SECTOR_LEN);
-    auto &update_buf = read_data->update_buf;
+    // 先清零，避免读到 EOF 以外时留下脏数据
+    memset(page_buf, 0, size_per_io);
 
-    std::vector<IORequest> reads, writes_4k, writes;
-    assert(new_nhood.size() < MAX_N_EDGES);
-    for (uint32_t i = 0; i < new_nhood.size(); ++i) {
-      reads.push_back(
-          IORequest(node_sector_no(new_nhood[i]) * SECTOR_LEN, size_per_io, update_buf + i * size_per_io, 0, 0));
-      page_buf_map[node_sector_no(new_nhood[i])] = update_buf + i * size_per_io;
+    // 把当前 sector 原来的内容读进来（如果是新扇区，就全是 0）
+    {
+      std::vector<IORequest> reads;
+      reads.emplace_back(IORequest(off, size_per_io, page_buf, 0, 0));
+
+      // 使用带 page cache 的 read_alloc：先查 v2::cache，miss 才真正走磁盘
+      std::vector<uint64_t> read_page_ref;
+      reader->read_alloc(reads, ctx, &read_page_ref);
+      reader->deref(&read_page_ref, ctx);
     }
 
-    for (uint32_t i = new_nhood.size(); i < new_nhood.size() + pages_to_rmw.size(); ++i) {
-      auto off = pages_to_rmw[i - new_nhood.size()].offset;
-      writes_4k.push_back(IORequest(off, size_per_io, update_buf + i * size_per_io, 0, 0));
-      // LOG(INFO) << off / SECTOR_LEN;
-      uint64_t page = off / SECTOR_LEN;
-      if (pages_need_to_read.find(page) != pages_need_to_read.end()) {
-        reads.push_back(IORequest(off, size_per_io, update_buf + i * size_per_io, 0, 0));
+    // 在这一页里定位到 loc 对应的 node 位置
+    char *node_buf = offset_to_loc(page_buf, loc);
+
+    DiskNode<T> node(new_id,
+                     offset_to_node_coords(node_buf),
+                     offset_to_node_nhood(node_buf));
+
+    // 写向量（这里用的是归一化后的 point，你也可以按需要换成 point1）
+    memcpy(node.coords, point, data_dim * sizeof(T));
+
+    // 写邻居数量和邻居 ID
+    node.nnbrs = static_cast<uint32_t>(new_nhood.size());
+    *(node.nbrs - 1) = node.nnbrs;  // DiskNode 约定：nbrs 前一个位置存 nnbrs
+    if (!new_nhood.empty()) {
+      memcpy(node.nbrs, new_nhood.data(), new_nhood.size() * sizeof(uint32_t));
+    }
+
+    // 更新 tag 映射
+    tags.insert_or_assign(new_id, tag);
+
+    // 把整个 sector 写回去（同页其它 node 的内容都被保留）
+    {
+      std::vector<IORequest> writes;
+      writes.emplace_back(IORequest(off, size_per_io, page_buf, 0, 0));
+      reader->write(writes, ctx, /*async=*/false);
+    }
+
+    pipeann::aligned_free(page_buf);
+
+    // -------- 4.3 只更新 L1 里的反向边，不动老页 --------
+    auto *l1 = this->l1_table_;
+    if (l1 != nullptr) {
+      auto &thread_pq_buf = read_data->nbr_vec_scratch;  // 轻剪时用的 scratch
+      for (auto v : new_nhood) {
+        l1->add_backlink(
+            v, new_id,
+            [this, new_id, &thread_pq_buf](uint32_t center, std::vector<uint32_t> &nbrs) {
+              this->prune_l1_delta(center, new_id, nbrs, thread_pq_buf);
+            });
       }
-      page_buf_map[off / SECTOR_LEN] = update_buf + i * size_per_io;
     }
 
-    // generate continuous writes from 4k writes.
-    // dummy one.
-    writes_4k.push_back(IORequest(std::numeric_limits<uint64_t>::max(), 0, nullptr, 0, 0));
-    uint64_t start_idx = 0;
-    uint64_t cur_off = writes_4k[0].offset;
-    for (uint32_t i = 1; i < writes_4k.size(); ++i) {
-      if (writes_4k[i].offset != cur_off + size_per_io) {
-        writes.push_back(
-            IORequest(writes_4k[start_idx].offset, size_per_io * (i - start_idx), writes_4k[start_idx].buf, 0, 0));
-        start_idx = i;
-      }
-      cur_off = writes_4k[i].offset;
-    }
-    writes_4k.pop_back();
-
-    reader->read_alloc(reads, ctx, &page_ref);
-
-    // update the target node.
-    auto sector = loc_sector_no(locs[new_nhood.size()]);
-    auto node_buf = offset_to_loc(page_buf_map[sector], locs[new_nhood.size()]);
-    DiskNode<T> target_node(target_id, offset_to_node_coords(node_buf), offset_to_node_nhood(node_buf));
-    memcpy(target_node.coords, point, data_dim * sizeof(T));
-    target_node.nnbrs = new_nhood.size();
-    *(target_node.nbrs - 1) = target_node.nnbrs;
-    memcpy(target_node.nbrs, new_nhood.data(), new_nhood.size() * sizeof(uint32_t));
-    tags.insert_or_assign(target_id, tag);
-
-    // update the neighbors
-    for (uint32_t i = 0; i < new_nhood.size(); ++i) {
-      auto r_sector = node_sector_no(new_nhood[i]);
-      if (page_buf_map.find(r_sector) == page_buf_map.end()) {
-        LOG(ERROR) << new_nhood[i] << " " << "Sector " << r_sector << " not found in page_buf_map";
-        exit(-1);
-      }
-      auto r_node_buf = offset_to_node(page_buf_map[r_sector], new_nhood[i]);
-      DiskNode<T> r_nbr_node(new_nhood[i], offset_to_node_coords(r_node_buf), offset_to_node_nhood(r_node_buf));
-      std::vector<uint32_t> nhood(r_nbr_node.nnbrs + 1);
-      nhood.assign(r_nbr_node.nbrs, r_nbr_node.nbrs + r_nbr_node.nnbrs);
-      nhood.emplace_back(target_id);  // attention: we do not reuse IDs.
-
-      if (nhood.size() > this->range) {  // delta prune neighbors
-        auto &thread_pq_buf = read_data->nbr_vec_scratch;
-        std::vector<float> tgt_dists(nhood.size(), 0.0f), nbr_dists(nhood.size(), 0.0f);
-        nbr_handler->compute_dists(target_id, nhood.data(), nhood.size(), tgt_dists.data(), thread_pq_buf);
-        nbr_handler->compute_dists(r_nbr_node.id, nhood.data(), nhood.size(), nbr_dists.data(), thread_pq_buf);
-        std::vector<TriangleNeighbor> tri_pool(nhood.size());
-
-        for (uint32_t k = 0; k < nhood.size(); k++) {
-          tri_pool[k].id = nhood[k];
-          tri_pool[k].tgt_dis = tgt_dists[k];
-          tri_pool[k].distance = nbr_dists[k];
-        }
-        std::sort(tri_pool.begin(), tri_pool.end());
-
-        int tgt_idx = -1;
-        for (int k = 0; k < (int) nhood.size(); ++k) {
-          if (tri_pool[k].id == target_id) {
-            tgt_idx = k;
-            break;
-          }
-        }
-        if (unlikely(tgt_idx == -1)) {
-          LOG(ERROR) << "Target ID " << target_id << " not found in tri_pool";
-          exit(-1);
-        }
-        this->delta_prune_neighbors_pq(tri_pool, nhood, thread_pq_buf, tgt_idx);
-      }
-
-      auto w_sector = loc_sector_no(locs[i]);
-      auto w_node_buf = offset_to_loc(page_buf_map[w_sector], locs[i]);
-      DiskNode<T> w_nbr_node(new_nhood[i], offset_to_node_coords(w_node_buf), offset_to_node_nhood(w_node_buf));
-      w_nbr_node.nnbrs = (uint32_t) nhood.size();
-      *(w_nbr_node.nbrs - 1) = (uint32_t) nhood.size();  // write to buf
-      memcpy(w_nbr_node.coords, r_nbr_node.coords, data_dim * sizeof(T));
-      memcpy(w_nbr_node.nbrs, nhood.data(), w_nbr_node.nnbrs * sizeof(uint32_t));
-    }
-
-    std::vector<uint64_t> write_page_ref;
-    reader->wbc_write(writes, ctx, &write_page_ref);
-
-#ifndef IN_PLACE_RECORD_UPDATE
-    // update locs
-    // no concurrency issue for target_id (as it can be only inserted).
-    set_id2loc(target_id, locs[new_nhood.size()]);
-    auto locked = lock_idx(idx_lock_table, target_id, new_nhood);
-    auto page_locked = lock_page_idx(page_idx_lock_table, target_id, new_nhood);
-    std::vector<uint64_t> orig_locs;
-    for (uint32_t i = 0; i < new_nhood.size(); ++i) {
-      orig_locs.emplace_back(id2loc(new_nhood[i]));
-      set_id2loc(new_nhood[i], locs[i]);
-    }
-
-    // with lock, for simple concurrency with alloc_loc.
-    // Only for convenience, note that locs[new_nhood.size()] -> target.
-    new_nhood.push_back(target_id);
-    erase_and_set_loc(orig_locs, locs, new_nhood);
-    unlock_page_idx(page_idx_lock_table, page_locked);
-    unlock_idx(idx_lock_table, locked);
-#endif
-    unlock_vec(vec_lock_table, target_id, new_nhood);
-
-    // LOG(INFO) << "ID " << target_id << " Target loc " << id2loc(target_id);
-
-    // commit writes (in the background thread.)
-#ifdef BG_IO_THREAD
-    if (!page_ref.empty()) {
-      auto bg_task = new BgTask{.thread_data = read_data,
-                                .writes = std::move(writes),
-                                .pages_to_unlock = std::move(pages_locked),
-                                .pages_to_deref = std::move(write_page_ref),
-                                .terminate = false};
-      bg_tasks.push(bg_task);
-      bg_tasks.push_notify_all();
-    } else {
-      v2::unlockReqs(this->page_lock_table, pages_locked);
-    }
-    reader->deref(&page_ref, ctx);
-#else
-    reader->write(writes, ctx);
-    aligned_free(read_data->update_buf);
-    read_data->update_buf = nullptr;
-
-    v2::unlockReqs(this->page_lock_table, pages_locked);
-    reader->deref(&write_page_ref, ctx);
-
-    reader->deref(&page_ref, ctx);
+    // -------- 4.4 清理、返回 --------
     this->push_query_buf(read_data);
-#endif
     return target_id;
   }
 
+  // 后台线程 ！！！！
   template<class T, class TagT>
   void SSDIndex<T, TagT>::bg_io_thread() {
     auto ctx = reader->get_ctx();

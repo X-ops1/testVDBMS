@@ -20,6 +20,9 @@
 #include <sys/syscall.h>
 #include "linux_aligned_file_reader.h"
 
+#include "v2/l1_neighbor_table.h"
+
+
 namespace pipeann {
   template<typename T, typename TagT>
   void SSDIndex<T, TagT>::do_beam_search(const T *query1, uint32_t mem_L, uint32_t l_search, const uint32_t beam_width,
@@ -92,6 +95,11 @@ namespace pipeann {
     std::vector<fnhood_t> frontier_nhoods;
     std::vector<IORequest> frontier_read_reqs;
     std::vector<uint32_t> vec_rdlocks;
+
+    // ===== L1 增量邻居相关（G1） =====
+    auto *l1_table = this->l1_table_;  // 可能为 nullptr，表示没有增量图
+    std::vector<unsigned> l1_nbrs;
+    std::vector<unsigned> merged_nbrs; // 存 L0[u] ∪ L1[u]
 
     std::vector<uint64_t> new_page_ref{};
     std::vector<uint64_t> &page_ref = passthrough_page_ref ? *passthrough_page_ref : new_page_ref;
@@ -172,52 +180,84 @@ namespace pipeann {
         }
         full_retset.push_back(Neighbor(id, cur_expanded_dist, true));
 
-        unsigned *node_nbrs = (node_buf + 1);
+        // ========= 原始邻居 L0[id] =========
+        unsigned *node_nbrs_raw = (node_buf + 1);
 
-        // compute node_nbrs <-> query dist in PQ space
+        // ========= 合并邻居 L0[id] ∪ L1[id] =========
+        merged_nbrs.clear();
+        merged_nbrs.reserve(nnbrs + 16);  // 预估一点 L1 容量，避免频繁扩容
+
+        // 1) 先加 L0[id]（磁盘上的邻居）
+        for (uint64_t m = 0; m < nnbrs; ++m) {
+          unsigned nid = node_nbrs_raw[m];
+          if (visited.find(nid) != visited.end())
+            continue;
+          visited.insert(nid);
+          merged_nbrs.emplace_back(nid);
+        }
+
+        // 2) 再加 L1[id]（内存增量邻居）
+        if (l1_table != nullptr) {
+          l1_nbrs.clear();
+          l1_table->append_neighbors(id, l1_nbrs);  // L1[id]
+          // // 只打印前几十个点，避免刷屏
+          // static thread_local int debug_cnt = 0;
+          // if (debug_cnt < 50 && !l1_nbrs.empty()) {
+          //     LOG(INFO) << "[L1-DEBUG] id=" << id
+          //               << " has " << l1_nbrs.size()
+          //               << " L1 neighbors, e.g. first=" << l1_nbrs[0];
+          //     ++debug_cnt;
+          // }
+          for (unsigned nid : l1_nbrs) {
+            if (visited.find(nid) != visited.end())
+              continue;
+            visited.insert(nid);
+            merged_nbrs.emplace_back(nid);
+          }
+        }
+
+        unsigned nbors_cand_size = (unsigned) merged_nbrs.size();
+        if (!nbors_cand_size) {
+          continue;   // 这个点没有可扩展邻居了
+        }
+
+        // compute merged_nbrs <-> query dist in PQ space
         cpu_timer.reset();
-        nbr_handler->compute_dists(query_buf, node_nbrs, nnbrs);
+        nbr_handler->compute_dists(query_buf, merged_nbrs.data(), nbors_cand_size);
         if (stats != nullptr) {
-          stats->n_cmps += (double) nnbrs;
+          stats->n_cmps += (double) nbors_cand_size;
           stats->cpu_us += (double) cpu_timer.elapsed();
         }
 
         cpu_timer.reset();
-        // process prefetch-ed nhood
-        for (uint64_t m = 0; m < nnbrs; ++m) {
-          unsigned id = node_nbrs[m];
-          if (unlikely(id > this->cur_id)) {
-            LOG(ERROR) << "ID is larger than current ID, " << id << " vs " << this->cur_id;
+        // process merged neighbors
+        for (uint64_t m = 0; m < nbors_cand_size; ++m) {
+          unsigned nbr_id = merged_nbrs[m];
+          if (unlikely(nbr_id > this->cur_id)) {
+            LOG(ERROR) << "ID is larger than current ID, " << nbr_id << " vs " << this->cur_id;
             crash();
           }
-          if (visited.find(id) != visited.end()) {
-            continue;
-          } else {
-            visited.insert(id);
-            cmps++;
-            float dist = dist_scratch[m];
-            if (stats != nullptr) {
-              stats->n_cmps++;
-            }
-            if (dist >= retset[cur_list_size - 1].distance && (cur_list_size == l_search))
-              continue;
-            Neighbor nn(id, dist, true);
-            // variable search_L for deleted nodes.
-            // Return position in sorted list where nn inserted.
 
-            auto r = InsertIntoPool(retset.data(), cur_list_size, nn);
-
-            if (cur_list_size < l_search) {
-              ++cur_list_size;
-              if (unlikely(cur_list_size >= retset.size())) {
-                retset.resize(2 * cur_list_size);
-              }
-            }
-
-            if (r < nk)
-              nk = r;  // nk logs the best position in the retset that was
-                       // updated due to neighbors of n.
+          cmps++;
+          float dist = dist_scratch[m];
+          if (stats != nullptr) {
+            stats->n_cmps++;
           }
+          if (dist >= retset[cur_list_size - 1].distance && (cur_list_size == l_search))
+            continue;
+
+          Neighbor nn(nbr_id, dist, true);
+          auto r = InsertIntoPool(retset.data(), cur_list_size, nn);
+
+          if (cur_list_size < l_search) {
+            ++cur_list_size;
+            if (unlikely(cur_list_size >= retset.size())) {
+              retset.resize(2 * cur_list_size);
+            }
+          }
+
+          if (r < nk)
+            nk = r;  // nk 记录本轮扩展中最“前面”被更新的位置
         }
 
         if (dyn_search_l) {

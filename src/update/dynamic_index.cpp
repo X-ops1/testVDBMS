@@ -28,6 +28,7 @@
 
 #include "linux_aligned_file_reader.h"
 
+
 namespace pipeann {
   template<typename T, typename TagT>
   DynamicSSDIndex<T, TagT>::DynamicSSDIndex(Parameters &parameters, const std::string disk_prefix_in,
@@ -59,6 +60,13 @@ namespace pipeann {
     reader.reset(new LinuxAlignedFileReader());
     AbstractNeighbor<T> *nbr_handler = new PQNeighbor<T>();
     _disk_index = new pipeann::SSDIndex<T, TagT>(this->_dist_metric, reader, nbr_handler, true, &_paras_disk);
+
+    uint32_t base_n = static_cast<uint32_t>(_disk_index->return_nd());
+    uint32_t max_npts = 5000000;//最大点数5M
+    // 先用磁盘索引的 R 作为 L1 的 B（软上限）
+    uint32_t l1_B = _paras_disk.R; 
+    l1_table_ = new v2::L1NeighborTable(max_npts, l1_B); // 先用最大点数初始化L1表
+    _disk_index->set_l1_table(l1_table_);
 
 #ifndef NO_POLLUTE_ORIGINAL
     std::string disk_index_prefix_shadow = _disk_index_prefix_in + "_shadow";
@@ -126,6 +134,7 @@ namespace pipeann {
       n = _disk_index->pipe_search(query, search_L, mem_L, search_L, result_tags.data(), result_distances.data(),
                                    beam_width, stats);
     }
+
     std::vector<NeighborTag<TagT>> best_vec;
     for (size_t i = 0; i < n; i++) {
       best_vec.emplace_back(result_tags[i], result_distances[i]);

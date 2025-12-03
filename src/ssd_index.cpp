@@ -204,65 +204,30 @@ namespace pipeann {
   template<typename T, typename TagT>
   void SSDIndex<T, TagT>::load_page_layout(const std::string &index_prefix, const uint64_t nnodes_per_sector,
                                            const uint64_t num_points) {
-    std::string partition_file = index_prefix + "_partition.bin.aligned";
-    id2loc_.resize(num_points);  // pre-allocate space first.
-    loc2id_.resize(cur_loc);     // pre-allocate space first.
+    // 方法 A：完全忽略 partition 文件，使用等距映射。
+    // 这里也干脆去掉 OpenMP 并行，反正只初始化一次，3M 点也就几十毫秒级。
+    (void) index_prefix;      // 不再使用 partition.bin
+    (void) nnodes_per_sector; // 不再依赖 C
+    (void) num_points;        // 使用 this->num_points 更稳妥
 
-    if (std::filesystem::exists(partition_file)) {
-      LOG(INFO) << "Loading partition file " << partition_file;
-      std::ifstream part(partition_file);
-      uint64_t C, partition_nums, nd;
-      part.read((char *) &C, sizeof(uint64_t));
-      part.read((char *) &partition_nums, sizeof(uint64_t));
-      part.read((char *) &nd, sizeof(uint64_t));
-      if (nnodes_per_sector <= 1 || C != nnodes_per_sector) {
-        // graph reordering is useful only when nnodes_per_sector > 1.
-        LOG(ERROR) << "partition information not correct.";
-        exit(-1);
-      }
-      LOG(INFO) << "Partition meta: C: " << C << " partition_nums: " << partition_nums;
+    // 保险起见，让 num_points / cur_loc 完全由 metadata 决定
+    const size_t npts   = static_cast<size_t>(this->num_points);
+    const size_t nslots = static_cast<size_t>(this->cur_loc);
 
-      uint64_t page_offset = loc_sector_no(0);
-      auto st = std::chrono::high_resolution_clock::now();
+    id2loc_.assign(npts, 0u);           // 大小 = npts
+    loc2id_.assign(nslots, kInvalidID); // 大小 = cur_loc
 
-      constexpr uint64_t n_parts_per_read = 1024 * 1024;
-      std::vector<unsigned> part_buf(n_parts_per_read * (1 + nnodes_per_sector));
-      for (uint64_t p = 0; p < partition_nums; p += n_parts_per_read) {
-        uint64_t nxt_p = std::min(p + n_parts_per_read, partition_nums);
-        part.read((char *) part_buf.data(), sizeof(unsigned) * n_parts_per_read * (1 + nnodes_per_sector));
-#pragma omp parallel for schedule(dynamic)
-        for (uint64_t i = p; i < nxt_p; ++i) {
-          uint32_t base = (i - p) * (1 + nnodes_per_sector);
-          uint32_t s = part_buf[base];  // size of this partition
-          for (uint32_t j = 0; j < s; ++j) {
-            uint64_t id = part_buf[base + 1 + j];
-            uint64_t loc = i * nnodes_per_sector + j;
-            id2loc_[id] = loc;
-            loc2id_[loc] = id;
-          }
-          for (uint32_t j = s; j < nnodes_per_sector; ++j) {
-            loc2id_[i * nnodes_per_sector + j] = kInvalidID;
-          }
-        }
-      }
-      auto et = std::chrono::high_resolution_clock::now();
-      LOG(INFO) << "Page layout loaded in " << std::chrono::duration_cast<std::chrono::milliseconds>(et - st).count()
-                << " ms";
-    } else {
-      LOG(INFO) << partition_file << " does not exist, use equal partition mapping";
-// use equal mapping for id2loc and page_layout.
-#ifndef NO_MAPPING
-#pragma omp parallel for
-      for (size_t i = 0; i < this->num_points; ++i) {
-        id2loc_[i] = i;
-        loc2id_[i] = i;
-      }
-      for (size_t i = this->num_points; i < this->cur_loc; ++i) {
-        loc2id_[i] = kInvalidID;
-      }
-#endif
+    // 0..(npts-1)：等距映射 id -> loc
+    for (size_t i = 0; i < npts; ++i) {
+      id2loc_[i] = static_cast<uint32_t>(i);
+      loc2id_[i] = static_cast<uint32_t>(i);
     }
-    LOG(INFO) << "Page layout loaded.";
+
+    // npts..(nslots-1)：是最后一页对齐产生的 padding，统一标为无效
+    // 上面 assign 已经全部设成 kInvalidID 了，这里实际上可以不写。
+
+    LOG(INFO) << "Page layout loaded with equal mapping (no per-page reserved slots). "
+              << "Npoints=" << npts << " Cur_loc=" << nslots;
   }
 
   template<typename T, typename TagT>

@@ -202,6 +202,73 @@ namespace pipeann {
   }
 
   template<typename T, typename TagT>
+  void SSDIndex<T, TagT>::prune_l1_delta(uint32_t center,
+                                        uint32_t new_id,
+                                        std::vector<uint32_t> &nbrs,
+                                        uint8_t *scratch) {
+    // 约定：L1 的软上限 B == this->range
+    // L1::add_backlink 保证：超过 B 时立刻调用 prune，
+    // 所以这里 nbrs.size() 应该是 range + 1。
+    if (nbrs.size() <= this->range)
+      return;
+
+    if (nbrs.size() != this->range + 1) {
+      LOG(WARNING) << "L1 prune: neighbors size " << nbrs.size()
+                  << " != range + 1 (" << this->range + 1 << ")";
+      return;// 直接 return
+    }
+
+    const size_t pool_size = nbrs.size();
+
+    // 1) 计算 d(new_id, nbrs[k]) 和 d(center, nbrs[k]) （用 PQ 近似）
+    std::vector<float> tgt_dists(pool_size), nbr_dists(pool_size);
+    // new_id -> neighbors
+    nbr_handler->compute_dists(new_id,
+                              nbrs.data(),
+                              pool_size,
+                              tgt_dists.data(),
+                              scratch);
+    // center(v) -> neighbors
+    nbr_handler->compute_dists(center,
+                              nbrs.data(),
+                              pool_size,
+                              nbr_dists.data(),
+                              scratch);
+
+    // 2) 组装 TriangleNeighbor 池
+    std::vector<TriangleNeighbor> tri_pool(pool_size);
+    for (size_t k = 0; k < pool_size; ++k) {
+      tri_pool[k].id       = nbrs[k];
+      tri_pool[k].tgt_dis  = tgt_dists[k];  // new_id -> nbr_k
+      tri_pool[k].distance = nbr_dists[k];  // center  -> nbr_k
+    }
+    std::sort(tri_pool.begin(), tri_pool.end());  // 按 distance 升序
+
+    // 3) 找到 new_id 在 tri_pool 里的下标
+    int tgt_idx = -1;
+    for (int k = 0; k < (int) pool_size; ++k) {
+      if (tri_pool[k].id == new_id) {
+        tgt_idx = k;
+        break;
+      }
+    }
+    if (unlikely(tgt_idx == -1)) {
+      LOG(ERROR) << "L1 prune: new_id " << new_id
+                << " not found in tri_pool for center " << center;
+      return;
+    }
+
+    // 4) 调用原来的 delta_prune_neighbors_pq 做
+    //    “三角预筛 + occlusion”，输出保留的 id 列表
+    std::vector<uint32_t> pruned_ids;
+    this->delta_prune_neighbors_pq(tri_pool, pruned_ids, scratch, tgt_idx);
+
+    // 5) 回写到 nbrs
+    nbrs.assign(pruned_ids.begin(), pruned_ids.end());
+  }
+
+
+  template<typename T, typename TagT>
   void SSDIndex<T, TagT>::prune_neighbors(const tsl::robin_map<uint32_t, T *> &coord_map, std::vector<Neighbor> &pool,
                                           std::vector<uint32_t> &pruned_list) {
     if (pool.size() == 0)
