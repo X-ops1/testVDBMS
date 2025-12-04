@@ -82,55 +82,103 @@ namespace pipeann {
     uint64_t sector = loc_sector_no(loc);      // 已有辅助函数
     uint64_t off    = sector * SECTOR_LEN;     // 一个 sector = SECTOR_LEN 字节
 
-    // 对同一扇区做并发保护，避免多线程对同一 sector 做 RMW 时丢更新
-    std::lock_guard<std::mutex> sector_guard(page_lock(sector));
 
-    // 为这一页申请对齐的缓冲区
+  #ifdef BG_IO_THREAD
+    // -------- 4.2 把新点的写盘交给后台写线程 --------
+
+    // 4.2.1 读出这个 sector（或者构造一个全 0 的新页）
     char *page_buf = nullptr;
     pipeann::alloc_aligned((void **) &page_buf, size_per_io, SECTOR_LEN);
-
-    // 先清零，避免读到 EOF 以外时留下脏数据
     memset(page_buf, 0, size_per_io);
 
-    // 把当前 sector 原来的内容读进来（如果是新扇区，就全是 0）
-    {
-      std::vector<IORequest> reads;
-      reads.emplace_back(IORequest(off, size_per_io, page_buf, 0, 0));
+    std::vector<IORequest> reads;
+    reads.emplace_back(IORequest(off, size_per_io, page_buf, 0, 0));
 
-      // 使用带 page cache 的 read_alloc：先查 v2::cache，miss 才真正走磁盘
-      std::vector<uint64_t> read_page_ref;
-      reader->read_alloc(reads, ctx, &read_page_ref);
-      reader->deref(&read_page_ref, ctx);
-    }
+    // 使用 lock_table 对这一页加锁，锁的释放交给 bg_io_thread
+    auto pages_locked = v2::lockReqs(this->page_lock_table, reads);
 
-    // 在这一页里定位到 loc 对应的 node 位置
+    std::vector<uint64_t> read_page_ref;
+    reader->read_alloc(reads, ctx, &read_page_ref);
+    // 不在前台线程里 deref / 解锁，交给 BgTask + bg_io_thread
+
+    // 4.2.2 在 page_buf 中写入新点
     char *node_buf = offset_to_loc(page_buf, loc);
-
     DiskNode<T> node(new_id,
-                     offset_to_node_coords(node_buf),
-                     offset_to_node_nhood(node_buf));
+                    offset_to_node_coords(node_buf),
+                    offset_to_node_nhood(node_buf));
 
-    // 写向量，这里用的是归一化后的 point
-    memcpy(node.coords, point, data_dim * sizeof(T));
+    // 写向量（这里 point 已经是归一化后的向量）
+    memcpy(node.coords, point, this->data_dim * sizeof(T));
 
     // 写邻居数量和邻居 ID
     node.nnbrs = static_cast<uint32_t>(new_nhood.size());
-    *(node.nbrs - 1) = node.nnbrs;  // DiskNode 约定：nbrs 前一个位置存 nnbrs
+    *(node.nbrs - 1) = node.nnbrs;
     if (!new_nhood.empty()) {
-      memcpy(node.nbrs, new_nhood.data(), new_nhood.size() * sizeof(uint32_t));
+      memcpy(node.nbrs, new_nhood.data(),
+            new_nhood.size() * sizeof(uint32_t));
     }
 
-    // 更新 tag 映射
-    tags.insert_or_assign(new_id, tag);
+    // 更新 tag 映射（只改内存哈希表）
+    this->tags.insert_or_assign(new_id, tag);
 
-    // 把整个 sector 写回去（同页其它 node 的内容都被保留）
+    // 4.2.3 把 page_buf 拷贝到 QueryBuffer::update_buf，交给后台写线程
+    auto *buf = read_data;  // 当前插入线程用的 QueryBuffer
+    DCHECK(buf->update_buf == nullptr);
+    pipeann::alloc_aligned((void **) &buf->update_buf, size_per_io, SECTOR_LEN);
+    memcpy(buf->update_buf, page_buf, size_per_io);
+    pipeann::aligned_free(page_buf);
+
+    std::vector<IORequest> writes;
+    writes.emplace_back(IORequest(off, size_per_io, buf->update_buf, 0, 0));
+
+    // 4.2.4 打一个 BgTask 丢进 bg_tasks 队列
+    auto *task = new BgTask();
+    task->thread_data     = buf;
+    task->writes          = std::move(writes);
+    task->pages_to_unlock = std::move(pages_locked);
+    task->pages_to_deref  = std::move(read_page_ref);
+    task->terminate       = false;
+
+    this->bg_tasks.push(task);
+    this->bg_tasks.push_notify_all();
+
+  #else   // 没开后台写线程时，保持原来的同步写盘逻辑
+    char *page_buf = nullptr;
+    pipeann::alloc_aligned((void **) &page_buf, size_per_io, SECTOR_LEN);
+    memset(page_buf, 0, size_per_io);
+
     {
+      auto page_lock = this->page_lock(sector);
+      std::unique_lock<std::shared_timed_mutex> sector_guard(page_lock);
+
+      std::vector<IORequest> reads;
+      reads.emplace_back(IORequest(off, size_per_io, page_buf, 0, 0));
+      std::vector<uint64_t> read_page_ref;
+      reader->read_alloc(reads, ctx, &read_page_ref);
+      reader->deref(&read_page_ref, ctx);
+
+      char *node_buf = offset_to_loc(page_buf, loc);
+      DiskNode<T> node(new_id,
+                      offset_to_node_coords(node_buf),
+                      offset_to_node_nhood(node_buf));
+
+      memcpy(node.coords, point, this->data_dim * sizeof(T));
+      node.nnbrs = static_cast<uint32_t>(new_nhood.size());
+      *(node.nbrs - 1) = node.nnbrs;
+      if (!new_nhood.empty()) {
+        memcpy(node.nbrs, new_nhood.data(),
+              new_nhood.size() * sizeof(uint32_t));
+      }
+      this->tags.insert_or_assign(new_id, tag);
+
       std::vector<IORequest> writes;
       writes.emplace_back(IORequest(off, size_per_io, page_buf, 0, 0));
       reader->write(writes, ctx, /*async=*/false);
     }
 
     pipeann::aligned_free(page_buf);
+
+  #endif  // BG_IO_THREAD
 
     // -------- 4.3 只更新 L1 里的反向边，不动老页 --------
     auto *l1 = this->l1_table_;
@@ -146,8 +194,11 @@ namespace pipeann {
     }
 
     // -------- 4.4 清理、返回 --------
-    this->push_query_buf(read_data);
-    return target_id;
+    #ifndef BG_IO_THREAD
+      // 同步写盘时，插入线程自己归还 QueryBuffer
+      this->push_query_buf(read_data);
+    #endif
+      return new_id;
   }
 
   // 对同一个 sector 上的一批点做：
@@ -247,8 +298,7 @@ namespace pipeann {
       std::vector<uint32_t> new_nhood;
       new_nhood.reserve(cand.size());
 
-      // 这个函数在 prune_neighbors.cpp 里已经实现，
-      // 负责：
+      // 这个函数负责：
       //   1）用 PQ 估计 dist(v, u)
       //   2）做三角预筛 + occlusion
       //   3）把结果写到 new_nhood

@@ -110,20 +110,6 @@ class L1NeighborTable {
     return true;
   }
 
-  // 方便版：不传轻剪函数时，用一个非常简单的策略：超过 B 就保留最后 B 个。
-  bool add_backlink(NodeId v, NodeId new_id) {
-    auto default_prune = [this](NodeId /*v*/, std::vector<NodeId> &nbrs) {
-      if (nbrs.size() > fanout_B_) {
-        const size_t keep = fanout_B_;
-        nbrs.erase(
-            nbrs.begin(),
-            nbrs.begin() +
-                static_cast<std::ptrdiff_t>(nbrs.size() - keep));
-      }
-    };
-    return add_backlink(v, new_id, default_prune);
-  }
-
   // =============== 搜索路径 ===============
   //
   // 把 L1[u] 复制到 out（覆盖 out）。
