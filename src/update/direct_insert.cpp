@@ -24,6 +24,9 @@
 #include "linux_aligned_file_reader.h"
 
 #include "v2/l1_neighbor_table.h"
+#include <cassert>
+
+#define BG_IO_THREAD
 
 namespace pipeann {
 
@@ -123,7 +126,7 @@ namespace pipeann {
 
     // 4.2.3 把 page_buf 拷贝到 QueryBuffer::update_buf，交给后台写线程
     auto *buf = read_data;  // 当前插入线程用的 QueryBuffer
-    DCHECK(buf->update_buf == nullptr);
+    assert(buf->update_buf == nullptr);
     pipeann::alloc_aligned((void **) &buf->update_buf, size_per_io, SECTOR_LEN);
     memcpy(buf->update_buf, page_buf, size_per_io);
     pipeann::aligned_free(page_buf);
@@ -183,13 +186,14 @@ namespace pipeann {
     // -------- 4.3 只更新 L1 里的反向边，不动老页 --------
     auto *l1 = this->l1_table_;
     if (l1 != nullptr) {
-      auto &thread_pq_buf = read_data->nbr_vec_scratch;  // 轻剪时用的 scratch
+      // 新策略：
+      //   - L1 只负责记录 “new -> v” 的增量回边；
+      //   - 不在这里做轻剪，避免在插入路径上增加额外开销；
+      //   - 当某个 v 的 L1[v] 长度达到 fanout_B_ 时，
+      //     L1NeighborTable 会通过 merge_hook_ 调用 SSDIndex::enqueue_merge_node(v)，
+      //     由后台 merge_worker_thread → merge_nodes_on_sector 进行真正的 L0+L1 重剪。
       for (auto v : new_nhood) {
-        l1->add_backlink(
-            v, new_id,
-            [this, new_id, &thread_pq_buf](uint32_t center, std::vector<uint32_t> &nbrs) {
-              this->prune_l1_delta(center, new_id, nbrs, thread_pq_buf);
-            });
+        l1->add_backlink(v, new_id);
       }
     }
 

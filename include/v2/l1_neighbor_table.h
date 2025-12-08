@@ -27,6 +27,13 @@ class L1NeighborTable {
  public:
   using NodeId = uint32_t;
 
+  using MergeHook = std::function<void(NodeId)>;
+  // 注册当某个 v 的 L1[v] 达到 merge 阈值（这里用 fanout_B_）时的回调。
+  // 由 SSDIndex 在 set_l1_table 时设置，典型实现是调用 SSDIndex::enqueue_merge_node(v)。
+  void set_merge_hook(const MergeHook &hook) {
+    merge_hook_ = hook;
+  }
+
   // 构造函数：为 [0, num_nodes) 预分配槽位，设置软上限 B。
   L1NeighborTable(NodeId num_nodes, uint32_t fanout_B,
                   uint32_t num_lock_shards = 1u << 14)
@@ -55,21 +62,21 @@ class L1NeighborTable {
   inline NodeId num_nodes() const {
     return static_cast<NodeId>(nodes_.size());
   }
-
   // =============== 插入路径 ===============
   //
   // 对每个 v ∈ N_out(new_id)，调用：
   //
   //   l1->add_backlink(v, new_id, light_prune_lambda);
   //
-  // 语义：
+  // 新语义：
   //   - 如果 new_id 已经在 L1[v] 里，直接返回 false，不做任何事。
-  //   - 否则插入，若 |L1[v]| <= B：直接 append；
-  //   - 若 |L1[v]| >  B：调用 prune(v, neighbors) 做一次轻剪，
-  //     要求剪完后 neighbors.size() <= B。
-  //
-  template<typename PruneFn>
-  bool add_backlink(NodeId v, NodeId new_id, PruneFn &&prune) {
+  //   - 否则插入，始终 append 到 L1[v]；
+  //   - 当 |L1[v]| >= fanout_B_ 时，如果注册了 merge_hook_，
+  //     则通过 merge_hook_(v) 通知底层索引对 v 做一次扇区级 merge。
+  //     （真正的精剪在 SSDIndex::merge_nodes_on_sector 里统一完成）
+  
+  bool add_backlink(NodeId v, NodeId new_id) {
+
     if (v >= nodes_.size()) {
       // 越界：调用方应该保证 num_nodes 足够大。
       return false;
@@ -90,15 +97,12 @@ class L1NeighborTable {
     const bool was_empty = delta.neighbors.empty();
     delta.neighbors.emplace_back(new_id);
 
-    if (delta.neighbors.size() > fanout_B_) {
-      // 调用轻剪逻辑，要求剪到 <= B。
-      prune(v, delta.neighbors);
-
-      // 轻剪可能删掉了一些 id，这里重建一下 neighbor_set 保持一致。
-      delta.neighbor_set.clear();
-      for (auto id : delta.neighbors) {
-        delta.neighbor_set.insert(id);
-      }
+    // 不再在 L1 上做轻剪，只在 L0+L1 merge 时统一精剪。
+    // 这里仅在 L1[v] 的长度达到 merge 阈值（默认 fanout_B_）时，
+    // 触发一次 merge 回调。
+    bool trigger_merge = false;
+    if (merge_hook_ && delta.neighbors.size() >= fanout_B_) {
+      trigger_merge = true;
     }
 
     // 如果之前是空的，现在非空了，记录到 active_nodes_ 里，方便后台遍历。
@@ -107,8 +111,71 @@ class L1NeighborTable {
       active_nodes_.insert(v);
     }
 
+    // 释放 L1[v] 的锁，再调用外部回调，避免死锁。
+    guard.unlock();
+
+    if (trigger_merge && merge_hook_) {
+      merge_hook_(v);
+    }
+
     return true;
   }
+
+
+
+  // // =============== 插入路径 ===============
+  // //
+  // // 对每个 v ∈ N_out(new_id)，调用：
+  // //
+  // //   l1->add_backlink(v, new_id, light_prune_lambda);
+  // //
+  // // 语义：
+  // //   - 如果 new_id 已经在 L1[v] 里，直接返回 false，不做任何事。
+  // //   - 否则插入，若 |L1[v]| <= B：直接 append；
+  // //   - 若 |L1[v]| >  B：调用 prune(v, neighbors) 做一次轻剪，
+  // //     要求剪完后 neighbors.size() <= B。
+  // //
+  // template<typename PruneFn>
+  // bool add_backlink(NodeId v, NodeId new_id, PruneFn &&prune) {
+  //   if (v >= nodes_.size()) {
+  //     // 越界：调用方应该保证 num_nodes 足够大。
+  //     return false;
+  //   }
+
+  //   auto &lock = shard_lock(v);
+  //   std::unique_lock<std::shared_timed_mutex> guard(lock);
+
+  //   NodeDelta &delta = nodes_[v];
+
+  //   // O(1) 去重
+  //   auto insert_res = delta.neighbor_set.insert(new_id);
+  //   if (!insert_res.second) {
+  //     // 已经存在
+  //     return false;
+  //   }
+
+  //   const bool was_empty = delta.neighbors.empty();
+  //   delta.neighbors.emplace_back(new_id);
+
+  //   if (delta.neighbors.size() > fanout_B_) {
+  //     // 调用轻剪逻辑，要求剪到 <= B。
+  //     prune(v, delta.neighbors);
+
+  //     // 轻剪可能删掉了一些 id，这里重建一下 neighbor_set 保持一致。
+  //     delta.neighbor_set.clear();
+  //     for (auto id : delta.neighbors) {
+  //       delta.neighbor_set.insert(id);
+  //     }
+  //   }
+
+  //   // 如果之前是空的，现在非空了，记录到 active_nodes_ 里，方便后台遍历。
+  //   if (was_empty && !delta.neighbors.empty()) {
+  //     std::lock_guard<std::mutex> g(active_nodes_mtx_);
+  //     active_nodes_.insert(v);
+  //   }
+
+  //   return true;
+  // }
 
   // =============== 搜索路径 ===============
   //
@@ -202,6 +269,9 @@ class L1NeighborTable {
   // 当前 L1[v] 非空的点的集合。
   tsl::robin_set<NodeId> active_nodes_;
   mutable std::mutex active_nodes_mtx_;
+
+  // 当某个 v 的 L1[v] 达到 merge 阈值时触发的回调（由 SSDIndex 设置）。
+  MergeHook merge_hook_;
 };
 
 }  // namespace v2

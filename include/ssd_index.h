@@ -6,6 +6,7 @@
 #include <set>
 #include "nbr/abstract_nbr.h"
 #include <omp.h>
+#include <atomic>  
 
 #include "aligned_file_reader.h"
 #include "utils/concurrent_queue.h"
@@ -15,6 +16,7 @@
 #include "utils.h"
 #include "neighbor.h"
 #include "index.h"
+#include "v2/l1_neighbor_table.h"
 
 #define MAX_N_CMPS 16384
 #define MAX_N_EDGES 1024
@@ -35,9 +37,6 @@ namespace pipeann {
              AbstractNeighbor<T> *nbr = new PQNeighbor<T>(), bool tags = false, Parameters *parameters = nullptr);
 
     ~SSDIndex();
-
-    void set_l1_table(v2::L1NeighborTable *t) { l1_table_ = t; }
-    v2::L1NeighborTable *get_l1_table() const { return l1_table_; }
 
     // returns region of `node_buf` containing [COORD(T)]
     inline T *offset_to_node_coords(const char *node_buf) {
@@ -237,6 +236,20 @@ namespace pipeann {
                          uint8_t *scratch);
     void prune_neighbors_pq(std::vector<Neighbor> &pool, std::vector<uint32_t> &pruned_list, uint8_t *scratch);
 
+    void set_l1_table(v2::L1NeighborTable *t) {
+      l1_table_ = t;
+      if (l1_table_ != nullptr) {
+        // 当某个 v 的 L1[v] 达到 fanout_B_ 时，L1NeighborTable 会调用这个回调；
+        // 这里直接把 v 丢到 merge 队列里，后台 merge_worker_thread
+        // 会按扇区聚合后调用 merge_nodes_on_sector。
+        l1_table_->set_merge_hook(
+            [this](uint32_t id) {
+              this->enqueue_merge_node(id);
+            });
+      }
+    }
+    v2::L1NeighborTable *get_l1_table() const { return l1_table_; }
+
     // 增量图合并线程及函数
     void merge_worker_thread();
     void merge_nodes_on_sector(uint64_t sector,
@@ -245,9 +258,25 @@ namespace pipeann {
                               
     // 插入线程在 L1[v] 达到合并阈值时调用
     inline void enqueue_merge_node(uint32_t id) {
+      // 统计一下 L1 触发合并的次数
+      auto cnt = stats_l1_merge_triggers_.fetch_add(1) + 1;
+
+      // 每 2^16 ≈ 6.5 万次触发打一次日志
+      if ((cnt & ((1u << 16) - 1)) == 0) {
+        LOG(INFO) << "[MERGE] enqueue_merge_node called " << cnt << " times so far.";
+      }
+
       // 这里不直接操作队列，而是走封装好的 push，里面会负责 push_notify_all
       push(id);
     }
+
+
+    // 轻剪 L1[v]：复用 delta_prune_neighbors_pq（PQ 路径）
+    // center = v, new_id = 本次刚插入的 new 节点 id
+    void prune_l1_delta(uint32_t center,
+                        uint32_t new_id,
+                        std::vector<uint32_t> &nbrs,
+                        uint8_t *scratch);
 
     // delta pruning.
     struct TriangleNeighbor {
@@ -266,13 +295,6 @@ namespace pipeann {
                                   uint8_t *scratch, int tgt_idx);
     void reload(const char *index_prefix, uint32_t num_threads);
 
-
-    // 轻剪 L1[v]：复用 delta_prune_neighbors_pq（PQ 路径）
-    // center = v, new_id = 本次刚插入的 new 节点 id
-    void prune_l1_delta(uint32_t center,
-                        uint32_t new_id,
-                        std::vector<uint32_t> &nbrs,
-                        uint8_t *scratch);
 
     // background I/O commit.
     struct BgTask {
@@ -699,9 +721,16 @@ namespace pipeann {
     // 用 ConcurrentQueue 实现的阻塞队列
     ConcurrentQueue<uint32_t> merge_queue_;
 
-    // 结束标志，析构时用于通知 merge 线程退出（后面实现退出逻辑时会用到）
+    // 结束标志，析构时用于通知 merge 线程退出
     std::atomic<bool> merge_stop_{false};
 
+    // ---------- merge 调试统计 ----------
+    // L1 触发合并（enqueue_merge_node 被调用）的总次数
+    std::atomic<uint64_t> stats_l1_merge_triggers_{0};
+    // merge_worker_thread 从队列成功 pop 出来的 id 次数
+    std::atomic<uint64_t> stats_merge_pop_{0};
+    // 去重后真正参与 merge_nodes_on_sector 的节点个数累积和
+    std::atomic<uint64_t> stats_merge_nodes_merged_{0};
 
     bool data_is_normalized = false;
 

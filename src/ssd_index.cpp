@@ -76,7 +76,7 @@ namespace pipeann {
   // --- merge 队列的简单封装 ---
   template<typename T, typename TagT>
   void SSDIndex<T, TagT>::push(uint32_t id) {
-    // 简单过滤：不要把空值推到队列里
+    // 简单过滤不把空值推到队列里
     if (id == MERGE_NULL_ID) {
       return;
     }
@@ -137,6 +137,8 @@ namespace pipeann {
       // 简单过滤非法 id
       if (id < num_points) {
         batch.push_back(id);
+        // 统计：merge 线程从队列里成功取出一个合法 id
+        stats_merge_pop_.fetch_add(1);
       }
 
       // 2）非阻塞地尽可能多地把当前队列里的任务拉出来，形成一个 batch
@@ -149,6 +151,8 @@ namespace pipeann {
         }
         if (tmp < num_points) {
           batch.push_back(tmp);
+          // 同样这里也统计一次 pop 成功
+          stats_merge_pop_.fetch_add(1);
         }
       }
 
@@ -157,9 +161,25 @@ namespace pipeann {
         continue;
       }
 
+      // 去重前的 batch 大小，可以作为一个观察值
+      const size_t before_dedup = batch.size();
+
       // 3）去重：同一个点在队列里出现多次，只合并一次
       std::sort(batch.begin(), batch.end());
       batch.erase(std::unique(batch.begin(), batch.end()), batch.end());
+
+      const size_t after_dedup = batch.size();
+      // 累加这次真正要 merge 的节点数
+      auto merged_total = stats_merge_nodes_merged_.fetch_add(after_dedup) + after_dedup;
+
+      // 每 1e5 个节点左右打印一次大致统计信息
+      if (merged_total % 100000 == 0) {
+        LOG(INFO) << "[MERGE] merged_nodes=" << merged_total
+                  << ", l1_triggers=" << stats_l1_merge_triggers_.load()
+                  << ", popped_ids=" << stats_merge_pop_.load()
+                  << ", last_batch_before_dedup=" << before_dedup
+                  << ", last_batch_after_dedup=" << after_dedup;
+      }
 
       // 4）按扇区号分组：sector -> [nodes...]
       std::map<uint64_t, std::vector<uint32_t>> sector_nodes;
@@ -180,7 +200,10 @@ namespace pipeann {
       batch.clear();
     }
 
-    LOG(INFO) << "SSDIndex merge worker thread exited.";
+    LOG(INFO) << "SSDIndex merge worker thread exited. "
+              << "l1_triggers=" << stats_l1_merge_triggers_.load()
+              << ", popped_ids=" << stats_merge_pop_.load()
+              << ", merged_nodes=" << stats_merge_nodes_merged_.load();
   }
 
 
