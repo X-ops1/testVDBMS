@@ -262,7 +262,7 @@ namespace pipeann {
       auto cnt = stats_l1_merge_triggers_.fetch_add(1) + 1;
 
       // 每 2^16 ≈ 6.5 万次触发打一次日志
-      if ((cnt & ((1u << 16) - 1)) == 0) {
+      if ((cnt & ((1u << 19) - 1)) == 0) {
         LOG(INFO) << "[MERGE] enqueue_merge_node called " << cnt << " times so far.";
       }
 

@@ -26,7 +26,9 @@
 #include "v2/l1_neighbor_table.h"
 #include <cassert>
 
+#ifndef BG_IO_THREAD
 #define BG_IO_THREAD
+#endif
 
 namespace pipeann {
 
@@ -206,7 +208,7 @@ namespace pipeann {
   }
 
   // 对同一个 sector 上的一批点做：
-  //   L0[v] + L1[v] → 候选集 cand → delta_prune_neighbors_pq → 新的 L0[v]
+  //   L0[v] + L1[v] → 候选集 cand → prune_neighbors_pq (PQ 剪枝) → 新的 L0[v]
   // 然后把这一整页写回（通过 BgTask 交给后台线程写盘）
   template<class T, class TagT>
   void SSDIndex<T, TagT>::merge_nodes_on_sector(uint64_t sector,
@@ -215,6 +217,9 @@ namespace pipeann {
     if (nodes.empty()) {
       return;
     }
+
+    // LOG(INFO) << "[MERGE] merge_nodes_on_sector BEGIN: sec tor=" << sector
+    //           << ", nodes_to_merge=" << nodes.size();
 
     // 1. 拿一个 QueryBuffer，当成本次 merge 的 scratch
     //    这里传 nullptr 就不会去填充 aligned_query_T
@@ -298,26 +303,49 @@ namespace pipeann {
         cand.resize(MAX_N_EDGES);
       }
 
-      // 4.5 调用基于 PQ 的 delta 剪枝，得到新的 L0[v]
+      // 4.5 基于 PQ 的 L0 重剪枝：cand (L0+L1) → new_nhood (最多 range 条边)
       std::vector<uint32_t> new_nhood;
       new_nhood.reserve(cand.size());
 
-      // 这个函数负责：
-      //   1）用 PQ 估计 dist(v, u)
-      //   2）做三角预筛 + occlusion
-      //   3）把结果写到 new_nhood
-      this->delta_prune_neighbors_pq(id, cand, new_nhood, thread_pq_buf);
+      if (cand.size() <= this->range) {
+        // 候选数量本身不超过出度上限，直接使用，也可以选择仍然做一次 occlusion
+        new_nhood.assign(cand.begin(), cand.end());
+      } else {
+        // 使用 PQ 近似距离 + occlusion 进行剪枝，逻辑复用 prune_neighbors_pq
+        std::vector<float> dists(cand.size(), 0.0f);
+        std::vector<Neighbor> pool(cand.size());
+
+        // 4.5.1 用 PQ 估计 dist(id, cand[k])
+        this->nbr_handler->compute_dists(
+            id,
+            cand.data(),
+            cand.size(),
+            dists.data(),
+            thread_pq_buf  // 复用 QueryBuffer 里的 scratch
+        );
+
+        // 4.5.2 组装 Neighbor 池并按距离排序
+        for (uint32_t k = 0; k < cand.size(); ++k) {
+          pool[k].id = cand[k];
+          pool[k].distance = dists[k];
+        }
+        std::sort(pool.begin(), pool.end());   // Neighbor::operator< 默认按 distance 升序
+        if (pool.size() > this->maxc) {
+          pool.resize(this->maxc);
+        }
+
+        // 4.5.3 用 PQ 的 occlusion 规则剪枝为 ≤ range 条边
+        this->prune_neighbors_pq(pool, new_nhood, thread_pq_buf);
+      }
 
       // 4.6 把新的邻居列表写回 page buffer 里的 node
       node.nnbrs = static_cast<uint32_t>(new_nhood.size());
       *(node.nbrs - 1) = node.nnbrs;
-      if (!new_nhood.empty()) {
-        memcpy(node.nbrs,
-              new_nhood.data(),
-              node.nnbrs * sizeof(uint32_t));
+      if (node.nnbrs > 0) {
+        memcpy(node.nbrs, new_nhood.data(), node.nnbrs * sizeof(uint32_t));
       }
 
-      // 如果后面你给 PQ 邻接（nbr_handler）增加 “set_nbrs / update_nbrs” 接口，
+      // 如果后面给 PQ 邻接（nbr_handler）增加 “set_nbrs / update_nbrs” 接口，
       // 可以在这里同步 PQ 图，比如：
       //
       //   this->nbr_handler->update_nbrs(id, new_nhood.data(), node.nnbrs);
@@ -349,10 +377,15 @@ namespace pipeann {
 
     this->bg_tasks.push(task);
     this->bg_tasks.push_notify_all();
+
+    // LOG(INFO) << "[MERGE] merge_nodes_on_sector END: sector=" << sector
+    //           << ", nodes_to_merge=" << nodes.size()
+    //           << ", write_bytes=" << this->size_per_io;
   }
 
   template<class T, class TagT>
   void SSDIndex<T, TagT>::bg_io_thread() {
+    LOG(INFO) << "bg_io_thread started.";
     auto ctx = reader->get_ctx();
     auto timer = pipeann::Timer();
     uint64_t n_tasks = 0;
@@ -365,6 +398,8 @@ namespace pipeann {
       }
 
       if (unlikely(task->terminate)) {
+        LOG(INFO) << "bg_io_thread received terminate task, exiting. "
+                  << "processed_tasks_so_far=" << n_tasks;
         delete task;
         break;
       }

@@ -108,7 +108,6 @@ namespace pipeann {
 
 
   // --- L1 增量图合并线程：从队列取节点，按扇区分组，然后调用 merge_nodes_on_sector ---
-
   template<typename T, typename TagT>
   void SSDIndex<T, TagT>::merge_worker_thread() {
     LOG(INFO) << "SSDIndex merge worker thread started.";
@@ -121,6 +120,8 @@ namespace pipeann {
 
     std::vector<uint32_t> batch;
     batch.reserve(kMergeBatchSize);
+
+    auto timer = pipeann::Timer();
 
     while (true) {
       uint32_t id = 0;
@@ -160,6 +161,10 @@ namespace pipeann {
         // 有可能刚才只拿到了终止哨兵或非法 id，继续下一轮
         continue;
       }
+      if(timer.elapsed() >= 5000000)
+      {
+        LOG(INFO) << "[MERGE] new batch: raw_ids=" << batch.size();
+      }
 
       // 去重前的 batch 大小，可以作为一个观察值
       const size_t before_dedup = batch.size();
@@ -172,8 +177,13 @@ namespace pipeann {
       // 累加这次真正要 merge 的节点数
       auto merged_total = stats_merge_nodes_merged_.fetch_add(after_dedup) + after_dedup;
 
-      // 每 1e5 个节点左右打印一次大致统计信息
-      if (merged_total % 100000 == 0) {
+      if(timer.elapsed() >= 5000000)
+      {
+        LOG(INFO) << "[MERGE] new batch true merge: raw_ids=" << after_dedup;
+      }
+
+      // 每 1000 个节点左右打印一次大致统计信息
+      if (merged_total % 1000 == 0) {
         LOG(INFO) << "[MERGE] merged_nodes=" << merged_total
                   << ", l1_triggers=" << stats_l1_merge_triggers_.load()
                   << ", popped_ids=" << stats_merge_pop_.load()
@@ -186,6 +196,12 @@ namespace pipeann {
       for (uint32_t vid : batch) {
         uint64_t sector = node_sector_no(vid);  // 利用已有的 id -> loc -> sector 映射
         sector_nodes[sector].push_back(vid);
+      }
+
+      if(timer.elapsed() >= 5000000)
+      {
+        LOG(INFO) << "[MERGE] batch sectors=" << sector_nodes.size();
+        timer.reset();
       }
 
       // 5）对每个扇区调用真正的合并逻辑
@@ -253,6 +269,10 @@ namespace pipeann {
       bg_io_thread_[i] = new std::thread(&SSDIndex<T, TagT>::bg_io_thread, this);
       bg_io_thread_[i]->detach();
     }
+
+    // 启动 L1 merge worker 线程：消费 merge_queue_，按扇区调用 merge_nodes_on_sector
+    LOG(INFO) << "Setup L1 merge worker thread for disk-graph merging...";
+    std::thread(&SSDIndex<T, TagT>::merge_worker_thread, this).detach();
 #endif
   }
 
