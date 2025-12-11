@@ -34,68 +34,73 @@
 [test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_0.bin
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-  20     4084.02           5.70318       3.419      12.881      20.622      26.902       37.53      93.811     32.5577
+  20     7335.78           2.22354       2.005        3.16        3.59       4.599        6.65      93.811     32.5577
 [test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 0, avg disk in top-10 = 10, frac queries with dyn result = 0
-[test_insert_search.cpp:211:INFO] search current time: 2
+[test_insert_search.cpp:211:INFO] search current time: 1
 [test_insert_search.cpp:323:INFO] Batch: 0 Total Batch : 10
 [test_insert_search.cpp:330:INFO] st: 0 ed: 1000516
 [test_insert_search.cpp:254:INFO] l_start: 0 r_start: 1000516 n: 100000
 [test_insert_search.cpp:230:INFO] Begin Insert
-[ssd_index.h:479:INFO] Resize id2loc_ to 1500774
+[ssd_index.h:479:INFO] Resize id2loc_ to 1500778
 [ssd_index.h:538:INFO] Resize loc2id_ to 1500775
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=8
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=8
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=8
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=952
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=952
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=949
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9918
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9628
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 524288 times so far.
-[direct_insert.cpp:418:INFO] Processed 12785 tasks, throughput: 2556.95 tasks/sec.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1019
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 1048576 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 1572864 times so far.
+[direct_insert.cpp:418:INFO] Processed 27270 tasks, throughput: 5453.97 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 2097152 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 7 RSS : 1.95144e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 571 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1024758
+[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 2621440 times so far.
+[test_insert_search.cpp:53:INFO]  memory current time: 7 RSS : 1.97926e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 575 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1031700
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 2621440 times so far.
-  20     9521.71           1.19245       1.088       1.952       2.346       3.839        7.99           0     32.5036
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 0.2455, avg disk in top-10 = 9.7545, frac queries with dyn result = 0.2207
-[test_insert_search.cpp:211:INFO] search current time: 8
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 3145728 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 10000
-[direct_insert.cpp:418:INFO] Processed 34634 tasks, throughput: 6926.52 tasks/sec.
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9857
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9541
+  20     9496.36           1.23624       1.181       1.883       2.161       2.709       3.702           0     32.4516
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 0.3125, avg disk in top-10 = 9.6875, frac queries with dyn result = 0.2717
+[test_insert_search.cpp:211:INFO] search current time: 8
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 3670016 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=967
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=946
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 4194304 times so far.
+[test_insert_search.cpp:352:INFO] Queries processed: 10000
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 4718592 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 5242880 times so far.
+[direct_insert.cpp:418:INFO] Processed 42148 tasks, throughput: 8429.38 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 5767168 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 14 RSS : 2.07854e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 594 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1065973
+[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 6291456 times so far.
+[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 6815744 times so far.
+[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 7340032 times so far.
+[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 7864320 times so far.
+[test_insert_search.cpp:53:INFO]  memory current time: 14 RSS : 2.14744e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 604 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1083508
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 6291456 times so far.
-[direct_insert.cpp:418:INFO] Processed 35983 tasks, throughput: 7196.28 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 6815744 times so far.
-  20     9662.84           1.18979       1.191       1.601       1.737       2.136       2.624           0      32.361
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 0.621, avg disk in top-10 = 9.379, frac queries with dyn result = 0.4711
-[test_insert_search.cpp:211:INFO] search current time: 16
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1023
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 7340032 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 20000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 7864320 times so far.
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9900
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9626
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 8388608 times so far.
+  20     9719.04           1.17238       1.189        1.66       1.808       2.218       2.929           0       32.31
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 0.7715, avg disk in top-10 = 9.2285, frac queries with dyn result = 0.5514
+[test_insert_search.cpp:211:INFO] search current time: 15
+[direct_insert.cpp:418:INFO] Processed 44589 tasks, throughput: 8917.72 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 8912896 times so far.
+[test_insert_search.cpp:352:INFO] Queries processed: 20000
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 9437184 times so far.
-[direct_insert.cpp:418:INFO] Processed 39822 tasks, throughput: 7964.31 tasks/sec.
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 17.7292s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1097 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1452 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 2243 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 6350 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 12351 us
+[test_insert_search.cpp:243:INFO] Inserted 100000 points in 15.2894s
+[test_insert_search.cpp:244:INFO] 10p insertion time : 1015 us
+[test_insert_search.cpp:245:INFO] 50p insertion time : 1236 us
+[test_insert_search.cpp:246:INFO] 90p insertion time : 1896 us
+[test_insert_search.cpp:247:INFO] 99p insertion time : 5846 us
+[test_insert_search.cpp:248:INFO] 99.9p insertion time : 10284 us
 [test_insert_search.cpp:355:INFO] Insertions complete!
 
 [test_insert_search.cpp:361:INFO] Search after update, current vector number: 0
@@ -103,65 +108,62 @@
 [test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_100000.bin
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1022
-  20     9966.89           1.07042       1.055       1.484       1.595        1.95       2.334      93.733     32.2791
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 0.8863, avg disk in top-10 = 9.1137, frac queries with dyn result = 0.6008
-[test_insert_search.cpp:211:INFO] search current time: 21
+  20       10062           1.03967        0.98       1.337       1.421       1.636       2.107       93.72     32.4213
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 0.8869, avg disk in top-10 = 9.1131, frac queries with dyn result = 0.6009
+[test_insert_search.cpp:211:INFO] search current time: 18
 [test_insert_search.cpp:323:INFO] Batch: 1 Total Batch : 10
 [test_insert_search.cpp:330:INFO] st: 100000 ed: 1100516
 [test_insert_search.cpp:254:INFO] l_start: 100000 r_start: 1100516 n: 100000
 [test_insert_search.cpp:230:INFO] Begin Insert
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 9961472 times so far.
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9936
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9612
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 10485760 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 11010048 times so far.
+[direct_insert.cpp:418:INFO] Processed 35424 tasks, throughput: 7084.76 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 11534336 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 12058624 times so far.
-[direct_insert.cpp:418:INFO] Processed 36020 tasks, throughput: 7203.85 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 12582912 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 13107200 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 26 RSS : 2.3525e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 635 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1138306
+[test_insert_search.cpp:53:INFO]  memory current time: 23 RSS : 2.36596e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 636 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1140819
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1023
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1019
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 13631488 times so far.
-  20     9543.24           1.23038       1.238       1.715       1.877       2.303        2.93           0     32.3162
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 1.195, avg disk in top-10 = 8.805, frac queries with dyn result = 0.7154
-[test_insert_search.cpp:211:INFO] search current time: 27
+  20     9105.64           1.37281       1.281       2.011       2.395       3.424       5.141           0     32.2079
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 1.2119, avg disk in top-10 = 8.7881, frac queries with dyn result = 0.7206
+[test_insert_search.cpp:211:INFO] search current time: 24
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 14155776 times so far.
 [test_insert_search.cpp:352:INFO] Queries processed: 10000
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 14680064 times so far.
+[direct_insert.cpp:418:INFO] Processed 40174 tasks, throughput: 8034.57 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 15204352 times so far.
-[direct_insert.cpp:418:INFO] Processed 38935 tasks, throughput: 7786.97 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 15728640 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 16252928 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1015
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 16777216 times so far.
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9897
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9592
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 17301504 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 17825792 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 33 RSS : 2.52273e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 662 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1186344
+[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 18350080 times so far.
+[test_insert_search.cpp:53:INFO]  memory current time: 30 RSS : 2.54963e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 665 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1191943
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-  20     8894.27           1.45963       1.335       2.154       2.589       3.698       5.252           0     32.1387
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 1.5368, avg disk in top-10 = 8.4632, frac queries with dyn result = 0.8075
-[test_insert_search.cpp:211:INFO] search current time: 34
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 18350080 times so far.
-[direct_insert.cpp:418:INFO] Processed 35184 tasks, throughput: 7036.74 tasks/sec.
+[direct_insert.cpp:418:INFO] Processed 44345 tasks, throughput: 8868.63 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 18874368 times so far.
+  20     9470.23           1.25469       1.267        1.75       1.947        2.46       3.601           0     32.0493
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 1.5767, avg disk in top-10 = 8.4233, frac queries with dyn result = 0.8161
+[test_insert_search.cpp:211:INFO] search current time: 31
 [test_insert_search.cpp:352:INFO] Queries processed: 20000
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 14.9929s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1086 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1337 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 1793 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 4003 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 8425 us
+[test_insert_search.cpp:243:INFO] Inserted 100000 points in 14.8429s
+[test_insert_search.cpp:244:INFO] 10p insertion time : 1032 us
+[test_insert_search.cpp:245:INFO] 50p insertion time : 1242 us
+[test_insert_search.cpp:246:INFO] 90p insertion time : 1700 us
+[test_insert_search.cpp:247:INFO] 99p insertion time : 3122 us
+[test_insert_search.cpp:248:INFO] 99.9p insertion time : 6702 us
 [test_insert_search.cpp:355:INFO] Insertions complete!
 
 [test_insert_search.cpp:361:INFO] Search after update, current vector number: 100000
@@ -169,65 +171,62 @@
 [test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_200000.bin
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1022
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1016
-  20     9881.09           1.10082       1.047       1.437       1.551       1.979       2.326      93.573     32.1198
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 1.6209, avg disk in top-10 = 8.3791, frac queries with dyn result = 0.8267
-[test_insert_search.cpp:211:INFO] search current time: 37
+  20     9873.28           1.10311       1.066       1.438       1.547       1.883        2.39      93.579     32.0427
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 1.6212, avg disk in top-10 = 8.3788, frac queries with dyn result = 0.8257
+[test_insert_search.cpp:211:INFO] search current time: 34
 [test_insert_search.cpp:323:INFO] Batch: 2 Total Batch : 10
 [test_insert_search.cpp:330:INFO] st: 200000 ed: 1200516
 [test_insert_search.cpp:254:INFO] l_start: 200000 r_start: 1200516 n: 100000
 [test_insert_search.cpp:230:INFO] Begin Insert
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9873
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9506
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 19398656 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 19922944 times so far.
+[direct_insert.cpp:418:INFO] Processed 26758 tasks, throughput: 5351.54 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 20447232 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 20971520 times so far.
-[direct_insert.cpp:418:INFO] Processed 32879 tasks, throughput: 6575.4 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 21495808 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 22020096 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 22544384 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1020
-[test_insert_search.cpp:53:INFO]  memory current time: 42 RSS : 2.71244e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 691 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1238304
+[test_insert_search.cpp:53:INFO]  memory current time: 39 RSS : 2.7171e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 691 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1238882
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 23068672 times so far.
-  20     8967.47           1.43237       1.349       2.126       2.473        3.25       4.046           0      32.043
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 1.8809, avg disk in top-10 = 8.1191, frac queries with dyn result = 0.872
-[test_insert_search.cpp:211:INFO] search current time: 43
+  20     8797.79           1.48885       1.358       2.147       2.584       3.925       5.622           0      31.979
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 1.8833, avg disk in top-10 = 8.1167, frac queries with dyn result = 0.8715
+[test_insert_search.cpp:211:INFO] search current time: 40
+[direct_insert.cpp:418:INFO] Processed 37704 tasks, throughput: 7539.62 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 23592960 times so far.
 [test_insert_search.cpp:352:INFO] Queries processed: 10000
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 24117248 times so far.
-[direct_insert.cpp:418:INFO] Processed 37058 tasks, throughput: 7411.57 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 24641536 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 25165824 times so far.
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9924
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9639
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 25690112 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 26214400 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1012
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 26738688 times so far.
+[direct_insert.cpp:418:INFO] Processed 41824 tasks, throughput: 8364.76 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 27262976 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 49 RSS : 2.88899e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 717 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1285637
+[test_insert_search.cpp:53:INFO]  memory current time: 46 RSS : 2.89053e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 717 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1285433
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[direct_insert.cpp:418:INFO] Processed 39249 tasks, throughput: 7848.53 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 27787264 times so far.
-  20     9277.91           1.32532       1.323       1.887       2.113       2.609       3.116           0     31.9537
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.183, avg disk in top-10 = 7.817, frac queries with dyn result = 0.9111
-[test_insert_search.cpp:211:INFO] search current time: 50
+  20     9224.09           1.34514       1.355       1.835       2.011       2.535       2.933           0     31.9087
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.1844, avg disk in top-10 = 7.8156, frac queries with dyn result = 0.911
+[test_insert_search.cpp:211:INFO] search current time: 47
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 28311552 times so far.
 [test_insert_search.cpp:352:INFO] Queries processed: 20000
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 15.4091s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1107 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1402 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 1805 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 3242 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 6796 us
+[test_insert_search.cpp:243:INFO] Inserted 100000 points in 15.7815s
+[test_insert_search.cpp:244:INFO] 10p insertion time : 1098 us
+[test_insert_search.cpp:245:INFO] 50p insertion time : 1388 us
+[test_insert_search.cpp:246:INFO] 90p insertion time : 1791 us
+[test_insert_search.cpp:247:INFO] 99p insertion time : 3356 us
+[test_insert_search.cpp:248:INFO] 99.9p insertion time : 6834 us
 [test_insert_search.cpp:355:INFO] Insertions complete!
 
 [test_insert_search.cpp:361:INFO] Search after update, current vector number: 200000
@@ -235,66 +234,67 @@
 [test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_300000.bin
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1017
-  20     9444.25           1.21364       1.145       1.542       1.666       2.163       5.809      93.545     31.9412
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.255, avg disk in top-10 = 7.745, frac queries with dyn result = 0.9176
-[test_insert_search.cpp:211:INFO] search current time: 54
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9901
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9601
+[direct_insert.cpp:418:INFO] Processed 28733 tasks, throughput: 5746.55 tasks/sec.
+  20     9678.58           1.16897       1.109       1.508       1.604       1.892        2.35       93.58     31.8908
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.2552, avg disk in top-10 = 7.7448, frac queries with dyn result = 0.9175
+[test_insert_search.cpp:211:INFO] search current time: 51
 [test_insert_search.cpp:323:INFO] Batch: 3 Total Batch : 10
 [test_insert_search.cpp:330:INFO] st: 300000 ed: 1300516
 [test_insert_search.cpp:254:INFO] l_start: 300000 r_start: 1300516 n: 100000
 [test_insert_search.cpp:230:INFO] Begin Insert
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 28835840 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 29360128 times so far.
-[direct_insert.cpp:418:INFO] Processed 27267 tasks, throughput: 5453.17 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 29884416 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 30408704 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 30932992 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 31457280 times so far.
+[direct_insert.cpp:418:INFO] Processed 40219 tasks, throughput: 8043.11 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 31981568 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 59 RSS : 3.0671e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 745 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1335257
+[test_insert_search.cpp:53:INFO]  memory current time: 56 RSS : 3.06919e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 746 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1337095
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1020
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 32505856 times so far.
-  20     9208.51           1.34921       1.292        2.08       2.396       3.108       3.836           0     31.9022
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.4738, avg disk in top-10 = 7.5262, frac queries with dyn result = 0.9394
-[test_insert_search.cpp:211:INFO] search current time: 60
-[direct_insert.cpp:418:INFO] Processed 36031 tasks, throughput: 7206.18 tasks/sec.
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9912
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9595
+  20     9242.68           1.33742       1.345        1.82       1.997       2.414       2.903           0     31.8682
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.4854, avg disk in top-10 = 7.5146, frac queries with dyn result = 0.9404
+[test_insert_search.cpp:211:INFO] search current time: 57
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 33030144 times so far.
 [test_insert_search.cpp:352:INFO] Queries processed: 10000
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 33554432 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 34078720 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 34603008 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 35127296 times so far.
+[direct_insert.cpp:418:INFO] Processed 38414 tasks, throughput: 7682.53 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 35651584 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1021
-[direct_insert.cpp:418:INFO] Processed 40469 tasks, throughput: 8093.72 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 36175872 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 66 RSS : 3.23532e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 771 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1382623
+[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 36700160 times so far.
+[test_insert_search.cpp:53:INFO]  memory current time: 63 RSS : 3.23905e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 773 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1385586
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 36700160 times so far.
-  20     9327.84           1.30303        1.27       2.043       2.328        2.96       3.896           0     31.7962
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.7257, avg disk in top-10 = 7.2743, frac queries with dyn result = 0.9588
-[test_insert_search.cpp:211:INFO] search current time: 67
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 37224448 times so far.
+  20     8945.38           1.43782       1.379        2.14       2.475       3.289       4.808           0     31.7856
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.7386, avg disk in top-10 = 7.2614, frac queries with dyn result = 0.9597
+[test_insert_search.cpp:211:INFO] search current time: 64
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 37748736 times so far.
 [test_insert_search.cpp:352:INFO] Queries processed: 20000
+[direct_insert.cpp:418:INFO] Processed 35343 tasks, throughput: 7068.31 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 38273024 times so far.
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 15.7087s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1144 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1461 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 1847 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 3285 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 5467 us
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9924
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9618
+[test_insert_search.cpp:243:INFO] Inserted 100000 points in 15.5746s
+[test_insert_search.cpp:244:INFO] 10p insertion time : 1114 us
+[test_insert_search.cpp:245:INFO] 50p insertion time : 1424 us
+[test_insert_search.cpp:246:INFO] 90p insertion time : 1844 us
+[test_insert_search.cpp:247:INFO] 99p insertion time : 3390 us
+[test_insert_search.cpp:248:INFO] 99.9p insertion time : 6772 us
 [test_insert_search.cpp:355:INFO] Insertions complete!
 
 [test_insert_search.cpp:361:INFO] Search after update, current vector number: 300000
@@ -302,13 +302,9 @@
 [test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_400000.bin
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-[direct_insert.cpp:418:INFO] Processed 29618 tasks, throughput: 5922.98 tasks/sec.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1017
-  20     9530.45           1.21182       1.153       1.598       1.703       2.135       2.556      93.522      31.788
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.8024, avg disk in top-10 = 7.1976, frac queries with dyn result = 0.9633
-[test_insert_search.cpp:211:INFO] search current time: 71
+  20     9629.66           1.17548       1.135       1.532       1.632       1.921       2.359      93.578     31.7773
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.8043, avg disk in top-10 = 7.1957, frac queries with dyn result = 0.9633
+[test_insert_search.cpp:211:INFO] search current time: 67
 [test_insert_search.cpp:323:INFO] Batch: 4 Total Batch : 10
 [test_insert_search.cpp:330:INFO] st: 400000 ed: 1400516
 [test_insert_search.cpp:254:INFO] l_start: 400000 r_start: 1400516 n: 100000
@@ -316,55 +312,49 @@
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 38797312 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 39321600 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 39845888 times so far.
+[direct_insert.cpp:418:INFO] Processed 28092 tasks, throughput: 5618.36 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 40370176 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 40894464 times so far.
-[direct_insert.cpp:418:INFO] Processed 35370 tasks, throughput: 7073.71 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 41418752 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 76 RSS : 3.4238e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 800 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1435296
+[test_insert_search.cpp:53:INFO]  memory current time: 72 RSS : 3.41658e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 800 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1435354
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 41943040 times so far.
-  20     8353.02            1.6928       1.596       2.538       2.927       3.765       4.764           0     31.7455
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.9799, avg disk in top-10 = 7.0201, frac queries with dyn result = 0.9741
-[test_insert_search.cpp:211:INFO] search current time: 77
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1023
+  20     8879.49           1.46997       1.394       2.204       2.588        4.22       6.066           0      31.734
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.9819, avg disk in top-10 = 7.0181, frac queries with dyn result = 0.9741
+[test_insert_search.cpp:211:INFO] search current time: 73
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 42467328 times so far.
 [test_insert_search.cpp:352:INFO] Queries processed: 10000
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 42991616 times so far.
+[direct_insert.cpp:418:INFO] Processed 33649 tasks, throughput: 6729.36 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 43515904 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 44040192 times so far.
-[direct_insert.cpp:418:INFO] Processed 33457 tasks, throughput: 6691.3 tasks/sec.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 44564480 times so far.
+[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=10000
+[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=9872
+[ssd_index.cpp:203:INFO] [MERGE] batch sectors=9548
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 45088768 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1020
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 45613056 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 83 RSS : 3.58212e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 826 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1480280
+[test_insert_search.cpp:53:INFO]  memory current time: 79 RSS : 3.5671e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 825 MB
+[test_insert_search.cpp:344:INFO] Number of vectors: 1478417
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 46137344 times so far.
-  20     8073.19           1.82189       1.672       2.684        3.18       4.255       5.565           0     31.7442
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.1893, avg disk in top-10 = 6.8107, frac queries with dyn result = 0.982
-[test_insert_search.cpp:211:INFO] search current time: 84
+[direct_insert.cpp:418:INFO] Processed 34352 tasks, throughput: 6870.34 tasks/sec.
+  20     8835.05           1.49201       1.424       2.166       2.478       3.415       6.245           0     31.7346
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.1853, avg disk in top-10 = 6.8147, frac queries with dyn result = 0.9814
+[test_insert_search.cpp:211:INFO] search current time: 81
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 46661632 times so far.
-[direct_insert.cpp:418:INFO] Processed 32157 tasks, throughput: 6431.32 tasks/sec.
 [test_insert_search.cpp:352:INFO] Queries processed: 20000
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 47185920 times so far.
 [ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 47710208 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1018
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 16.5535s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1167 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1492 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 1833 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 4642 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 9241 us
+[test_insert_search.cpp:243:INFO] Inserted 100000 points in 17.1026s
+[test_insert_search.cpp:244:INFO] 10p insertion time : 1186 us
+[test_insert_search.cpp:245:INFO] 50p insertion time : 1513 us
+[test_insert_search.cpp:246:INFO] 90p insertion time : 1900 us
+[test_insert_search.cpp:247:INFO] 99p insertion time : 4006 us
+[test_insert_search.cpp:248:INFO] 99.9p insertion time : 8280 us
 [test_insert_search.cpp:355:INFO] Insertions complete!
 
 [test_insert_search.cpp:361:INFO] Search after update, current vector number: 400000
@@ -372,389 +362,11 @@
 [test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_500000.bin
   Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
 ==============================================================================
-  20     9408.77           1.26511       1.187       1.653       1.789       2.205       2.609      93.443     31.7533
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.2714, avg disk in top-10 = 6.7286, frac queries with dyn result = 0.9838
-[test_insert_search.cpp:211:INFO] search current time: 88
+[direct_insert.cpp:418:INFO] Processed 25344 tasks, throughput: 5068.61 tasks/sec.
+  20     9363.17           1.26585       1.188       1.616       1.718       2.036       2.457      93.471     31.7105
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.2724, avg disk in top-10 = 6.7276, frac queries with dyn result = 0.9837
+[test_insert_search.cpp:211:INFO] search current time: 85
 [test_insert_search.cpp:323:INFO] Batch: 5 Total Batch : 10
 [test_insert_search.cpp:330:INFO] st: 500000 ed: 1500516
 [test_insert_search.cpp:254:INFO] l_start: 500000 r_start: 1500516 n: 100000
 [test_insert_search.cpp:230:INFO] Begin Insert
-[ssd_index.h:479:INFO] Resize id2loc_ to 2251162
-[ssd_index.h:538:INFO] Resize loc2id_ to 2251162
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 48234496 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 48758784 times so far.
-[direct_insert.cpp:418:INFO] Processed 27521 tasks, throughput: 5504.16 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 49283072 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 49807360 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 50331648 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1009
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 50855936 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 93 RSS : 3.81321e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 855 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1533850
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 51380224 times so far.
-  20     8783.73           1.51374       1.467       2.325       2.647       3.332       4.164           0     31.7487
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.4241, avg disk in top-10 = 6.5759, frac queries with dyn result = 0.9872
-[test_insert_search.cpp:211:INFO] search current time: 94
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 51904512 times so far.
-[direct_insert.cpp:418:INFO] Processed 33734 tasks, throughput: 6746.71 tasks/sec.
-[test_insert_search.cpp:352:INFO] Queries processed: 10000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 52428800 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 52953088 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 53477376 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 54001664 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1007
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 54525952 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 55050240 times so far.
-[direct_insert.cpp:418:INFO] Processed 36420 tasks, throughput: 7283.84 tasks/sec.
-[test_insert_search.cpp:53:INFO]  memory current time: 100 RSS : 3.96426e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 880 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1577618
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 55574528 times so far.
-  20     8964.05           1.44763       1.437       2.151       2.396       2.933       4.097           0     31.7513
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.6076, avg disk in top-10 = 6.3924, frac queries with dyn result = 0.9894
-[test_insert_search.cpp:211:INFO] search current time: 102
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 56098816 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 20000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 56623104 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 57147392 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1020
-[direct_insert.cpp:418:INFO] Processed 29856 tasks, throughput: 5970.97 tasks/sec.
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 16.7176s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1205 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1539 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 1994 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 3496 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 6720 us
-[test_insert_search.cpp:355:INFO] Insertions complete!
-
-[test_insert_search.cpp:361:INFO] Search after update, current vector number: 500000
-[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_600000.bin
-[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_600000.bin
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-  20     9131.83           1.36736       1.277       1.774        1.98       2.365       2.986      93.373     31.7699
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.6869, avg disk in top-10 = 6.3131, frac queries with dyn result = 0.9902
-[test_insert_search.cpp:211:INFO] search current time: 106
-[test_insert_search.cpp:323:INFO] Batch: 6 Total Batch : 10
-[test_insert_search.cpp:330:INFO] st: 600000 ed: 1600516
-[test_insert_search.cpp:254:INFO] l_start: 600000 r_start: 1600516 n: 100000
-[test_insert_search.cpp:230:INFO] Begin Insert
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 57671680 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 58195968 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 58720256 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 59244544 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1019
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 59768832 times so far.
-[direct_insert.cpp:418:INFO] Processed 28624 tasks, throughput: 5724.69 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 60293120 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 111 RSS : 4.15129e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 910 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1632338
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 60817408 times so far.
-  20      8012.3           1.85202       1.715       2.747       3.229       4.309       7.054           0     31.7594
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.8153, avg disk in top-10 = 6.1847, frac queries with dyn result = 0.9919
-[test_insert_search.cpp:211:INFO] search current time: 112
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 61341696 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 10000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 61865984 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 62390272 times so far.
-[direct_insert.cpp:418:INFO] Processed 29687 tasks, throughput: 5937.29 tasks/sec.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1020
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1014
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 62914560 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 63438848 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 63963136 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 118 RSS : 4.28828e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 932 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1671568
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 64487424 times so far.
-  20      8579.5           1.60146       1.575       2.347       2.599       3.205       3.864           0     31.7342
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.9604, avg disk in top-10 = 6.0396, frac queries with dyn result = 0.9932
-[test_insert_search.cpp:211:INFO] search current time: 120
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 65011712 times so far.
-[direct_insert.cpp:418:INFO] Processed 29978 tasks, throughput: 5995.39 tasks/sec.
-[test_insert_search.cpp:352:INFO] Queries processed: 20000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 65536000 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1022
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 66060288 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 66584576 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 67108864 times so far.
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 18.5804s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1293 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1642 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 2055 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 4703 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 10814 us
-[test_insert_search.cpp:355:INFO] Insertions complete!
-
-[test_insert_search.cpp:361:INFO] Search after update, current vector number: 600000
-[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_700000.bin
-[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_700000.bin
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[direct_insert.cpp:418:INFO] Processed 27371 tasks, throughput: 5473.98 tasks/sec.
-  20     9041.21           1.39427       1.326       1.823       2.016       2.345       2.783      93.164     31.7967
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.05, avg disk in top-10 = 5.95, frac queries with dyn result = 0.9945
-[test_insert_search.cpp:211:INFO] search current time: 126
-[test_insert_search.cpp:323:INFO] Batch: 7 Total Batch : 10
-[test_insert_search.cpp:330:INFO] st: 700000 ed: 1700516
-[test_insert_search.cpp:254:INFO] l_start: 700000 r_start: 1700516 n: 100000
-[test_insert_search.cpp:230:INFO] Begin Insert
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 67633152 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1022
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 68157440 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 68681728 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 69206016 times so far.
-[direct_insert.cpp:418:INFO] Processed 28830 tasks, throughput: 5765.67 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 69730304 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 131 RSS : 4.50061e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 965 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1730519
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 70254592 times so far.
-  20     8142.01           1.80175       1.764       2.496        2.73       3.203       4.016           0     31.7622
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.1584, avg disk in top-10 = 5.8416, frac queries with dyn result = 0.9952
-[test_insert_search.cpp:211:INFO] search current time: 132
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1023
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1018
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 70778880 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 10000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 71303168 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 71827456 times so far.
-[direct_insert.cpp:418:INFO] Processed 31018 tasks, throughput: 6203.52 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 72351744 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 72876032 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 73400320 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 73924608 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 138 RSS : 4.63871e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 988 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1771190
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1019
-  20     8120.88           1.81113       1.786       2.535       2.802       3.328        4.03           0     31.7402
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.2901, avg disk in top-10 = 5.7099, frac queries with dyn result = 0.9963
-[test_insert_search.cpp:211:INFO] search current time: 139
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 74448896 times so far.
-[direct_insert.cpp:418:INFO] Processed 30542 tasks, throughput: 6108.27 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 74973184 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 20000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 75497472 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 76021760 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 76546048 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1020
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 18.1367s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1337 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1682 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 2232 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 3702 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 5618 us
-[test_insert_search.cpp:355:INFO] Insertions complete!
-
-[test_insert_search.cpp:361:INFO] Search after update, current vector number: 700000
-[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_800000.bin
-[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_800000.bin
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[direct_insert.cpp:418:INFO] Processed 26444 tasks, throughput: 5288.65 tasks/sec.
-  20     8979.71           1.42652       1.459       1.859       2.066       2.482       3.062      93.095     31.7195
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.3783, avg disk in top-10 = 5.6217, frac queries with dyn result = 0.9968
-[test_insert_search.cpp:211:INFO] search current time: 145
-[test_insert_search.cpp:323:INFO] Batch: 8 Total Batch : 10
-[test_insert_search.cpp:330:INFO] st: 800000 ed: 1800516
-[test_insert_search.cpp:254:INFO] l_start: 800000 r_start: 1800516 n: 100000
-[test_insert_search.cpp:230:INFO] Begin Insert
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 77070336 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 77594624 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 78118912 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 78643200 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 79167488 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1022
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1018
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 79691776 times so far.
-[direct_insert.cpp:418:INFO] Processed 33719 tasks, throughput: 6743.75 tasks/sec.
-[test_insert_search.cpp:53:INFO]  memory current time: 150 RSS : 4.85008e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1022 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1832103
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 80216064 times so far.
-  20     8240.88            1.7541       1.707       2.455       2.792       3.611      16.685           0     31.7001
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.4811, avg disk in top-10 = 5.5189, frac queries with dyn result = 0.997
-[test_insert_search.cpp:211:INFO] search current time: 151
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 80740352 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 10000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 81264640 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 81788928 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1022
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1019
-[direct_insert.cpp:418:INFO] Processed 29415 tasks, throughput: 5882.91 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 82313216 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 82837504 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 83361792 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 157 RSS : 4.99731e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1044 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1872195
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 83886080 times so far.
-  20     7804.84           1.96215       1.882       2.866       3.314       4.377       5.875           0     31.6782
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.6047, avg disk in top-10 = 5.3953, frac queries with dyn result = 0.9976
-[test_insert_search.cpp:211:INFO] search current time: 159
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 84410368 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 20000
-[direct_insert.cpp:418:INFO] Processed 29012 tasks, throughput: 5802.28 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 84934656 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1018
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1012
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 85458944 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 85983232 times so far.
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 18.1091s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1321 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1651 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 2123 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 4302 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 7677 us
-[test_insert_search.cpp:355:INFO] Insertions complete!
-
-[test_insert_search.cpp:361:INFO] Search after update, current vector number: 800000
-[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_900000.bin
-[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_900000.bin
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-  20     8362.94           1.68425       1.661       2.299       2.511       2.941        3.29      93.005     31.6589
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.6775, avg disk in top-10 = 5.3225, frac queries with dyn result = 0.9976
-[test_insert_search.cpp:211:INFO] search current time: 165
-[test_insert_search.cpp:323:INFO] Batch: 9 Total Batch : 10
-[test_insert_search.cpp:330:INFO] st: 900000 ed: 1900516
-[test_insert_search.cpp:254:INFO] l_start: 900000 r_start: 1900516 n: 100000
-[test_insert_search.cpp:230:INFO] Begin Insert
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 86507520 times so far.
-[direct_insert.cpp:418:INFO] Processed 23712 tasks, throughput: 4742.38 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 87031808 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 87556096 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1015
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 88080384 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 88604672 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 89128960 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 170 RSS : 5.19676e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1077 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1930678
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[direct_insert.cpp:418:INFO] Processed 31193 tasks, throughput: 6237.87 tasks/sec.
-  20     7911.79           1.91278       1.869       2.887       3.259       4.142       6.657           0     31.6395
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.765, avg disk in top-10 = 5.235, frac queries with dyn result = 0.9979
-[test_insert_search.cpp:211:INFO] search current time: 171
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 89653248 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 10000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 90177536 times so far.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1019
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 90701824 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 91226112 times so far.
-[direct_insert.cpp:418:INFO] Processed 27585 tasks, throughput: 5516.83 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 91750400 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 92274688 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 177 RSS : 5.3136e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1096 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1964257
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 92798976 times so far.
-  20     8416.09           1.67716       1.625       2.772       3.095       3.773       4.588           0       31.63
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.8534, avg disk in top-10 = 5.1466, frac queries with dyn result = 0.9983
-[test_insert_search.cpp:211:INFO] search current time: 178
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1007
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 93323264 times so far.
-[test_insert_search.cpp:352:INFO] Queries processed: 20000
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 93847552 times so far.
-[direct_insert.cpp:418:INFO] Processed 24874 tasks, throughput: 4974.67 tasks/sec.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 94371840 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 94896128 times so far.
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 95420416 times so far.
-[test_insert_search.cpp:53:INFO]  memory current time: 184 RSS : 5.43188e+06 KB /NV1/czy/PipeANN_new/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1115 MB
-[test_insert_search.cpp:344:INFO] Number of vectors: 1998524
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1023
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1012
-[direct_insert.cpp:418:INFO] Processed 24587 tasks, throughput: 4916.78 tasks/sec.
-  20      8736.9           1.53679       1.607       2.429       2.652       3.113       3.706           0     31.6241
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.9364, avg disk in top-10 = 5.0636, frac queries with dyn result = 0.9983
-[test_insert_search.cpp:211:INFO] search current time: 185
-[ssd_index.h:266:INFO] [MERGE] enqueue_merge_node called 95944704 times so far.
-[test_insert_search.cpp:243:INFO] Inserted 100000 points in 21.5213s
-[test_insert_search.cpp:244:INFO] 10p insertion time : 1441 us
-[test_insert_search.cpp:245:INFO] 50p insertion time : 1787 us
-[test_insert_search.cpp:246:INFO] 90p insertion time : 2535 us
-[test_insert_search.cpp:247:INFO] 99p insertion time : 5191 us
-[test_insert_search.cpp:248:INFO] 99.9p insertion time : 11024 us
-[test_insert_search.cpp:352:INFO] Queries processed: 30000
-[test_insert_search.cpp:355:INFO] Insertions complete!
-
-[test_insert_search.cpp:361:INFO] Search after update, current vector number: 900000
-[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_1000000.bin
-[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/PipeANN_new/data&index/BIGANN_1M/gt/gt_1000000.bin
-  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
-==============================================================================
-  20     8853.76           1.48056       1.556       2.241        2.44         2.9       3.329      92.889     31.6271
-[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.9392, avg disk in top-10 = 5.0608, frac queries with dyn result = 0.9983
-[test_insert_search.cpp:211:INFO] search current time: 187
-[test_insert_search.cpp:375:INFO] Store the last index to disk.
-[dynamic_index.cpp:181:INFO] Cleared deletion set 1 - ready to accept new points
-[delete_merge.cpp:52:INFO] Cur loc: 2000517, cur ID: 2000516, n_sectors: 285789, nnodes_per_sector: 7
-[delete_merge.cpp:102:INFO] Finished populating neighborhoods, totally elapsed: 1876.42ms, new npoints: 2000516 id_map size: 2000516
-[delete_merge.cpp:104:INFO] Deleted nodes size: 0, deleted_nhoods size: 0
-[direct_insert.cpp:418:INFO] Processed 7264 tasks, throughput: 1452.77 tasks/sec.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1003
-[delete_merge.cpp:209:INFO] Processed 65536/285789 sectors, n_used_id: 458752.
-[delete_merge.cpp:121:INFO] Write back 458752/458752 IDs.
-[direct_insert.cpp:418:INFO] Processed 6989 tasks, throughput: 1397.61 tasks/sec.
-[delete_merge.cpp:209:INFO] Processed 131072/285789 sectors, n_used_id: 917504.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1015
-[delete_merge.cpp:121:INFO] Write back 917504/917504 IDs.
-[delete_merge.cpp:209:INFO] Processed 196608/285789 sectors, n_used_id: 1376255.
-[direct_insert.cpp:418:INFO] Processed 6344 tasks, throughput: 1268.75 tasks/sec.
-[delete_merge.cpp:209:INFO] Processed 262144/285789 sectors, n_used_id: 1835007.
-[delete_merge.cpp:121:INFO] Write back 1376256/1835007 IDs.
-[ssd_index.cpp:166:INFO] [MERGE] new batch: raw_ids=1024
-[ssd_index.cpp:182:INFO] [MERGE] new batch true merge: raw_ids=1024
-[ssd_index.cpp:203:INFO] [MERGE] batch sectors=1007
-[delete_merge.cpp:209:INFO] Processed 285789/285789 sectors, n_used_id: 2000516.
-[delete_merge.cpp:121:INFO] Write back 1835008/2000516 IDs.
-[delete_merge.cpp:121:INFO] Write back 2000516/2000516 IDs.
-[delete_merge.cpp:218:INFO] Write nhoods finished, totally elapsed 14344.1ms.
-./split.sh: line 48: 385443 Segmentation fault      (core dumped) /NV1/czy/PipeANN_new/build/tests/test_insert_search uint8 "$ROOT/data_1M_4M.bin" 128 100000 10 10 32 0 "$ROOT/index_1M" "$ROOT/bigann_query.bin" "$ROOT/gt" 0 10 4 4 0 20
-     385444 Done                    | tee "$ROOT/logs/odiann_hello.log"

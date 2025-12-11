@@ -207,9 +207,8 @@ namespace pipeann {
       return new_id;
   }
 
-  // 对同一个 sector 上的一批点做：
-  //   L0[v] + L1[v] → 候选集 cand → prune_neighbors_pq (PQ 剪枝) → 新的 L0[v]
-  // 然后把这一整页写回（通过 BgTask 交给后台线程写盘）
+
+  // 然后把这一整页合并并写回（通过 BgTask 交给后台线程写盘）
   template<class T, class TagT>
   void SSDIndex<T, TagT>::merge_nodes_on_sector(uint64_t sector,
                                                 const std::vector<uint32_t> &nodes,

@@ -116,7 +116,7 @@ namespace pipeann {
     void *ctx = reader->get_ctx();
 
     // 单次批处理最多从队列拉这么多点，可以后面再调参
-    constexpr size_t kMergeBatchSize = 1024;
+    constexpr size_t kMergeBatchSize = 10000;
 
     std::vector<uint32_t> batch;
     batch.reserve(kMergeBatchSize);
@@ -161,10 +161,10 @@ namespace pipeann {
         // 有可能刚才只拿到了终止哨兵或非法 id，继续下一轮
         continue;
       }
-      if(timer.elapsed() >= 5000000)
-      {
+      // if(timer.elapsed() >= 5000000)
+      // {
         LOG(INFO) << "[MERGE] new batch: raw_ids=" << batch.size();
-      }
+      // }
 
       // 去重前的 batch 大小，可以作为一个观察值
       const size_t before_dedup = batch.size();
@@ -177,10 +177,10 @@ namespace pipeann {
       // 累加这次真正要 merge 的节点数
       auto merged_total = stats_merge_nodes_merged_.fetch_add(after_dedup) + after_dedup;
 
-      if(timer.elapsed() >= 5000000)
-      {
+      // if(timer.elapsed() >= 5000000)
+      // {
         LOG(INFO) << "[MERGE] new batch true merge: raw_ids=" << after_dedup;
-      }
+      // }
 
       // 每 1000 个节点左右打印一次大致统计信息
       if (merged_total % 1000 == 0) {
@@ -198,11 +198,11 @@ namespace pipeann {
         sector_nodes[sector].push_back(vid);
       }
 
-      if(timer.elapsed() >= 5000000)
-      {
+      // if(timer.elapsed() >= 5000000)
+      // {
         LOG(INFO) << "[MERGE] batch sectors=" << sector_nodes.size();
         timer.reset();
-      }
+      // }
 
       // 5）对每个扇区调用真正的合并逻辑
       //   读盘 + 抽干 L1 增量邻居 + pool 合并 + prune_neighbors_pq + BgTask + wbc_write
@@ -221,6 +221,62 @@ namespace pipeann {
               << ", popped_ids=" << stats_merge_pop_.load()
               << ", merged_nodes=" << stats_merge_nodes_merged_.load();
   }
+
+  // 新方案入口：插入线程内的“整页搬迁 + 合并”。
+  template<typename T, typename TagT>
+  void SSDIndex<T, TagT>::merge_page_for_node_inline(uint32_t center) {
+  #if SSD_L1_MERGE_MODE == SSD_L1_MERGE_INLINE_PAGE
+    // 0. 简单过滤非法 id
+    if (center >= this->num_points) {
+      return;
+    }
+
+    // 1. 通过 id -> page 号
+    uint64_t page = this->id2page(center);
+    if (page == kInvalidID) {
+      LOG(WARNING) << "[MERGE][INLINE] center=" << center
+                  << " has invalid page, skip.";
+      return;
+    }
+
+    // 2. 拿到这一页的布局：page 上每个 slot 当前对应的 id
+    //    get_page_layout 会返回该页所有 loc 上的 id
+    auto layout = this->get_page_layout(static_cast<uint32_t>(page));
+
+    std::vector<uint32_t> nodes_in_page;
+    nodes_in_page.reserve(layout.size());
+    for (uint32_t vid : layout) {
+      // 过滤掉无效 / 仅占位的 slot
+      if (vid == kInvalidID || vid == kAllocatedID) {
+        continue;
+      }
+      nodes_in_page.push_back(vid);
+    }
+
+    if (nodes_in_page.empty()) {
+      LOG(WARNING) << "[MERGE][INLINE] page=" << page
+                  << " has no valid nodes, center=" << center;
+      return;
+    }
+
+    // 3. 打一点调试日志
+    static thread_local uint64_t local_cnt = 0;
+    ++local_cnt;
+    if ((local_cnt & ((1u << 12) - 1)) == 0) {  // 每 4096 次触发打一条
+      LOG(INFO) << "[MERGE][INLINE] center=" << center
+                << " page="   << page
+                << " nodes_in_page=" << nodes_in_page.size();
+    }
+
+    // 4. 复用原有的按扇区 merge 逻辑：
+    //    L0[v] + L1[v] → cand → PQ 剪枝 → 新的 L0[v]，并写回这一页
+    void *ctx = reader->get_ctx();
+    this->merge_nodes_on_sector(page, nodes_in_page, ctx);
+  #else
+    (void) center;
+  #endif
+  }
+
 
 
 
@@ -263,18 +319,25 @@ namespace pipeann {
     }
 
 #ifndef READ_ONLY_TESTS
-    // background thread.
+    // background thread: 负责 BgTask 的写盘
     LOG(INFO) << "Setup " << kBgIOThreads << " background I/O threads for insert...";
     for (int i = 0; i < kBgIOThreads; ++i) {
       bg_io_thread_[i] = new std::thread(&SSDIndex<T, TagT>::bg_io_thread, this);
       bg_io_thread_[i]->detach();
     }
 
-    // 启动 L1 merge worker 线程：消费 merge_queue_，按扇区调用 merge_nodes_on_sector
-    LOG(INFO) << "Setup L1 merge worker thread for disk-graph merging...";
+    // 根据 SSD_L1_MERGE_MODE 决定是否启用后台 L1 merge 线程
+#if SSD_L1_MERGE_MODE == SSD_L1_MERGE_BG_WORKER
+    LOG(INFO) << "Setup L1 merge worker thread for disk-graph merging (BG_WORKER mode)...";
     std::thread(&SSDIndex<T, TagT>::merge_worker_thread, this).detach();
+#else
+    LOG(INFO) << "L1 merge worker thread disabled (INLINE_PAGE mode, merge in insert path).";
 #endif
-  }
+
+#endif
+}
+
+
 
   template<typename T, typename TagT>
   void SSDIndex<T, TagT>::destroy_buffers() {

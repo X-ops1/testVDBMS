@@ -21,6 +21,23 @@
 #define MAX_N_CMPS 16384
 #define MAX_N_EDGES 1024
 
+// ---- L1 merge strategy macros ----
+// 0 = 后台 merge_worker_thread + merge_nodes_on_sector（按扇区就地重剪）
+// 1 = 插入线程内整页搬迁 + L0+L1 合并（page-level relocate）
+#ifndef SSD_L1_MERGE_BG_WORKER
+#define SSD_L1_MERGE_BG_WORKER 0
+#endif
+
+#ifndef SSD_L1_MERGE_INLINE_PAGE
+#define SSD_L1_MERGE_INLINE_PAGE 1
+#endif
+
+// 默认使用 inline page merge，如果想回到旧方案，可以在编译选项里 -DSSD_L1_MERGE_MODE=SSD_L1_MERGE_BG_WORKER
+#ifndef SSD_L1_MERGE_MODE
+#define SSD_L1_MERGE_MODE SSD_L1_MERGE_INLINE_PAGE
+#endif
+
+
 constexpr int kIndexSizeFactor = 2;
 
 enum SearchMode { BEAM_SEARCH = 0, PAGE_SEARCH = 1, PIPE_SEARCH = 2, CORO_SEARCH = 3 };
@@ -240,15 +257,29 @@ namespace pipeann {
       l1_table_ = t;
       if (l1_table_ != nullptr) {
         // 当某个 v 的 L1[v] 达到 fanout_B_ 时，L1NeighborTable 会调用这个回调；
-        // 这里直接把 v 丢到 merge 队列里，后台 merge_worker_thread
-        // 会按扇区聚合后调用 merge_nodes_on_sector。
+        // 在这里根据 SSD_L1_MERGE_MODE 选择合并策略：
+        //   - SSD_L1_MERGE_BG_WORKER：丢到队列里，由后台 merge_worker_thread 处理；
+        //   - SSD_L1_MERGE_INLINE_PAGE：由当前插入线程直接做“整页搬迁 + 合并”。
+#if SSD_L1_MERGE_MODE == SSD_L1_MERGE_BG_WORKER
         l1_table_->set_merge_hook(
             [this](uint32_t id) {
               this->enqueue_merge_node(id);
             });
+#elif SSD_L1_MERGE_MODE == SSD_L1_MERGE_INLINE_PAGE
+        l1_table_->set_merge_hook(
+            [this](uint32_t id) {
+              this->merge_page_for_node_inline(id);
+            });
+#else
+#  error "Unknown SSD_L1_MERGE_MODE"
+#endif
       }
     }
+
     v2::L1NeighborTable *get_l1_table() const { return l1_table_; }
+
+    // 新方案：插入线程在 L1[v] 达到合并阈值时，直接在当前线程做整页合并
+    void merge_page_for_node_inline(uint32_t id);
 
     // 增量图合并线程及函数
     void merge_worker_thread();
