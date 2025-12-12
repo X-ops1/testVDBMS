@@ -67,13 +67,6 @@ class L1NeighborTable {
   // 对每个 v ∈ N_out(new_id)，调用：
   //
   //   l1->add_backlink(v, new_id, light_prune_lambda);
-  //
-  // 新语义：
-  //   - 如果 new_id 已经在 L1[v] 里，直接返回 false，不做任何事。
-  //   - 否则插入，始终 append 到 L1[v]；
-  //   - 当 |L1[v]| >= fanout_B_ 时，如果注册了 merge_hook_，
-  //     则通过 merge_hook_(v) 通知底层索引对 v 做一次扇区级 merge。
-  //     （真正的精剪在 SSDIndex::merge_nodes_on_sector 里统一完成）
   
   bool add_backlink(NodeId v, NodeId new_id) {
 
