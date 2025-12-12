@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <map>
+#include "linux_aligned_file_reader.h"
 
 namespace pipeann {
   template<typename T>
@@ -105,7 +106,6 @@ namespace pipeann {
       id = merge_queue_.pop();
     }
   }
-
 
   // --- L1 增量图合并线程：从队列取节点，按扇区分组，然后调用 merge_nodes_on_sector ---
   template<typename T, typename TagT>
@@ -222,7 +222,179 @@ namespace pipeann {
               << ", merged_nodes=" << stats_merge_nodes_merged_.load();
   }
 
-  // 新方案入口：插入线程内的“整页搬迁 + 合并”。
+  // 然后把这一整页合并并写回（通过 BgTask 交给后台线程写盘）
+  template<class T, class TagT>
+  void SSDIndex<T, TagT>::merge_nodes_on_sector(uint64_t sector,
+                                                const std::vector<uint32_t> &nodes,
+                                                void *ctx) {
+    if (nodes.empty()) {
+      return;
+    }
+
+    // LOG(INFO) << "[MERGE] merge_nodes_on_sector BEGIN: sec tor=" << sector
+    //           << ", nodes_to_merge=" << nodes.size();
+
+    // 1. 拿一个 QueryBuffer，当成本次 merge 的 scratch
+    //    这里传 nullptr 就不会去填充 aligned_query_T
+    QueryBuffer<T> *buf = this->pop_query_buf(nullptr);
+    char *sector_buf = buf->sector_scratch;
+    uint8_t *thread_pq_buf = buf->nbr_vec_scratch;  // PQ 剪枝用的 scratch
+
+    // 2. 页级锁：锁住这一页，防止并发写
+    std::vector<IORequest> pages_to_rmw;
+    pages_to_rmw.emplace_back(
+        IORequest(sector * SECTOR_LEN, this->size_per_io, nullptr, 0, 0));
+    std::vector<uint64_t> pages_locked = v2::lockReqs(this->page_lock_table, pages_to_rmw);
+
+    // 3. 读入这一页（带 page cache 的 read_alloc）
+    std::vector<IORequest> reads;
+    reads.emplace_back(
+        IORequest(sector * SECTOR_LEN, this->size_per_io, sector_buf, 0, 0));
+    std::vector<uint64_t> read_page_ref;
+    this->reader->read_alloc(reads, ctx, &read_page_ref);
+
+    // 4. 对属于这一页的每个点 v 做「L0 + L1 → 重剪枝」
+    auto *l1 = this->l1_table_;
+
+    for (uint32_t id : nodes) {
+      // 4.0 保护一下非法 id / loc
+      uint64_t loc = this->id2loc(id);
+      if (loc >= this->cur_loc) {
+        continue;  // 已经被删掉或无效
+      }
+      if (this->loc_sector_no(loc) != sector) {
+        continue;  // 双重保险：只处理确实在这一页上的点
+      }
+
+      // 4.1 在该页 buffer 中定位到该点的 node 区域
+      char *node_buf = this->offset_to_loc(sector_buf, loc);
+      DiskNode<T> node(id,
+                      this->offset_to_node_coords(node_buf),
+                      this->offset_to_node_nhood(node_buf));
+
+      uint32_t old_deg = node.nnbrs;
+      uint32_t *old_nbrs = node.nbrs;
+
+      // 4.2 收集候选邻居：旧的 L0 邻居
+      std::vector<uint32_t> cand;
+      cand.reserve(old_deg + 32);
+
+      for (uint32_t i = 0; i < old_deg; ++i) {
+        uint32_t nbr = old_nbrs[i];
+        if (nbr != id) {  // 自环直接跳过
+          cand.push_back(nbr);
+        }
+      }
+
+      // 4.3 把 L1[v] 的增量邻居抽干并追加到候选里
+      if (l1 != nullptr) {
+        std::vector<uint32_t> delta;
+        l1->drain_neighbors(id, delta);  // L1[id] → delta，并清空 L1[id]
+        cand.insert(cand.end(), delta.begin(), delta.end());
+      }
+
+      if (cand.empty()) {
+        // 没有邻居了，直接把 L0 清空
+        node.nnbrs = 0;
+        *(node.nbrs - 1) = 0;  // DiskNode 约定：nbrs[-1] 存 nnbrs
+        continue;
+      }
+
+      // 4.4 去重 + 去 self-loop
+      std::sort(cand.begin(), cand.end());
+      cand.erase(std::unique(cand.begin(), cand.end()), cand.end());
+      cand.erase(std::remove(cand.begin(), cand.end(), id), cand.end());
+
+      if (cand.empty()) {
+        node.nnbrs = 0;
+        *(node.nbrs - 1) = 0;
+        continue;
+      }
+
+      if (cand.size() > MAX_N_EDGES) {
+        cand.resize(MAX_N_EDGES);
+      }
+
+      // 4.5 基于 PQ 的 L0 重剪枝：cand (L0+L1) → new_nhood (最多 range 条边)
+      std::vector<uint32_t> new_nhood;
+      new_nhood.reserve(cand.size());
+
+      if (cand.size() <= this->range) {
+        // 候选数量本身不超过出度上限，直接使用，也可以选择仍然做一次 occlusion
+        new_nhood.assign(cand.begin(), cand.end());
+      } else {
+        // 使用 PQ 近似距离 + occlusion 进行剪枝，逻辑复用 prune_neighbors_pq
+        std::vector<float> dists(cand.size(), 0.0f);
+        std::vector<Neighbor> pool(cand.size());
+
+        // 4.5.1 用 PQ 估计 dist(id, cand[k])
+        this->nbr_handler->compute_dists(
+            id,
+            cand.data(),
+            cand.size(),
+            dists.data(),
+            thread_pq_buf  // 复用 QueryBuffer 里的 scratch
+        );
+
+        // 4.5.2 组装 Neighbor 池并按距离排序
+        for (uint32_t k = 0; k < cand.size(); ++k) {
+          pool[k].id = cand[k];
+          pool[k].distance = dists[k];
+        }
+        std::sort(pool.begin(), pool.end());   // Neighbor::operator< 默认按 distance 升序
+        if (pool.size() > this->maxc) {
+          pool.resize(this->maxc);
+        }
+
+        // 4.5.3 用 PQ 的 occlusion 规则剪枝为 ≤ range 条边
+        this->prune_neighbors_pq(pool, new_nhood, thread_pq_buf);
+      }
+
+      // 4.6 把新的邻居列表写回 page buffer 里的 node
+      node.nnbrs = static_cast<uint32_t>(new_nhood.size());
+      *(node.nbrs - 1) = node.nnbrs;
+      if (node.nnbrs > 0) {
+        memcpy(node.nbrs, new_nhood.data(), node.nnbrs * sizeof(uint32_t));
+      }
+
+      // 如果后面给 PQ 邻接（nbr_handler）增加 “set_nbrs / update_nbrs” 接口，
+      // 可以在这里同步 PQ 图，比如：
+      //
+      //   this->nbr_handler->update_nbrs(id, new_nhood.data(), node.nnbrs);
+      //
+      // 为了不和现有接口冲突，这里先不调用任何 PQ 更新函数。
+    }
+
+    // 5. 把修改过的这一页复制到 update_buf，交给后台写盘线程
+    //    update_buf 在 bg_io_thread 里写完之后会被 aligned_free，并把 buf 归还 buffer 池。
+    assert(buf->update_buf == nullptr);
+    pipeann::alloc_aligned(reinterpret_cast<void **>(&buf->update_buf),
+                          this->size_per_io,
+                          SECTOR_LEN);
+    memcpy(buf->update_buf, sector_buf, this->size_per_io);
+
+    char *update_buf = buf->update_buf;
+
+    // 6. 封装 BgTask，异步写盘 + 解锁 + deref cache
+    auto *task = new BgTask();
+    task->thread_data = buf;
+    task->terminate = false;
+
+    task->writes.clear();
+    task->writes.emplace_back(
+        IORequest(sector * SECTOR_LEN, this->size_per_io, update_buf, 0, 0));
+
+    task->pages_to_unlock = std::move(pages_locked);
+    task->pages_to_deref = std::move(read_page_ref);
+
+    this->bg_tasks.push(task);
+    this->bg_tasks.push_notify_all();
+
+    // LOG(INFO) << "[MERGE] merge_nodes_on_sector END: sector=" << sector
+    //           << ", nodes_to_merge=" << nodes.size()
+    //           << ", write_bytes=" << this->size_per_io;
+  }
+
   template<typename T, typename TagT>
   void SSDIndex<T, TagT>::merge_page_for_node_inline(uint32_t center) {
   #if SSD_L1_MERGE_MODE == SSD_L1_MERGE_INLINE_PAGE
@@ -231,7 +403,7 @@ namespace pipeann {
       return;
     }
 
-    // 1. 通过 id -> page 号
+    // 1. 找到 center 所在页
     uint64_t page = this->id2page(center);
     if (page == kInvalidID) {
       LOG(WARNING) << "[MERGE][INLINE] center=" << center
@@ -239,43 +411,293 @@ namespace pipeann {
       return;
     }
 
-    // 2. 拿到这一页的布局：page 上每个 slot 当前对应的 id
-    //    get_page_layout 会返回该页所有 loc 上的 id
+    // 2. 收集这一页上的所有有效点及其旧 loc
     auto layout = this->get_page_layout(static_cast<uint32_t>(page));
 
-    std::vector<uint32_t> nodes_in_page;
-    nodes_in_page.reserve(layout.size());
+    std::vector<uint32_t> ids;
+    std::vector<uint64_t> old_locs;
+    ids.reserve(layout.size());
+    old_locs.reserve(layout.size());
+
     for (uint32_t vid : layout) {
-      // 过滤掉无效 / 仅占位的 slot
       if (vid == kInvalidID || vid == kAllocatedID) {
         continue;
       }
-      nodes_in_page.push_back(vid);
+      uint64_t loc = this->id2loc(vid);
+      if (loc == kInvalidID || loc >= this->cur_loc) {
+        continue;
+      }
+      if (this->loc_sector_no(loc) != page) {
+        continue;  // 双重保险：只搬这一页上的点
+      }
+      ids.push_back(vid);
+      old_locs.push_back(loc);
     }
 
-    if (nodes_in_page.empty()) {
-      LOG(WARNING) << "[MERGE][INLINE] page=" << page
-                  << " has no valid nodes, center=" << center;
+    if (ids.empty()) {
+      // LOG(INFO) << "[MERGE][INLINE] page=" << page
+      //           << " has no valid nodes, center=" << center;
       return;
     }
 
-    // 3. 打一点调试日志
-    static thread_local uint64_t local_cnt = 0;
-    ++local_cnt;
-    if ((local_cnt & ((1u << 12) - 1)) == 0) {  // 每 4096 次触发打一条
-      LOG(INFO) << "[MERGE][INLINE] center=" << center
-                << " page="   << page
-                << " nodes_in_page=" << nodes_in_page.size();
+    // 3. 申请 QueryBuffer，当成本次 merge 的 scratch
+    QueryBuffer<T> *buf = this->pop_query_buf(nullptr);
+    char *sector_buf = buf->sector_scratch;
+    uint8_t *thread_pq_buf = buf->nbr_vec_scratch;
+
+    auto reader = this->reader;
+    void *ctx = reader->get_ctx();
+
+    // 4. 页级锁 + 读入这一页
+    std::vector<IORequest> pages_to_rmw;
+    pages_to_rmw.emplace_back(
+        IORequest(page * SECTOR_LEN, this->size_per_io, nullptr, 0, 0));
+    std::vector<uint64_t> pages_locked =
+        v2::lockReqs(this->page_lock_table, pages_to_rmw);
+
+    std::vector<IORequest> reads;
+    reads.emplace_back(
+        IORequest(page * SECTOR_LEN, this->size_per_io, sector_buf, 0, 0));
+    std::vector<uint64_t> read_page_ref;
+    reader->read_alloc(reads, ctx, &read_page_ref);
+
+    // 5. 对这一页上的每个点做「L0 + L1 → 重剪枝」，只改 sector_buf，不写回旧页
+    auto *l1 = this->l1_table_;
+
+    for (size_t idx = 0; idx < ids.size(); ++idx) {
+      uint32_t id = ids[idx];
+      uint64_t loc = old_locs[idx];
+
+      // 再次确认 loc 还在这一页（防御性检查）
+      if (loc >= this->cur_loc || this->loc_sector_no(loc) != page) {
+        continue;
+      }
+
+      char *node_buf = this->offset_to_loc(sector_buf, loc);
+      DiskNode<T> node(id,
+                      this->offset_to_node_coords(node_buf),
+                      this->offset_to_node_nhood(node_buf));
+
+      uint32_t old_deg = node.nnbrs;
+      uint32_t *old_nbrs = node.nbrs;
+
+      // 5.1 旧 L0 邻居
+      std::vector<uint32_t> cand;
+      cand.reserve(old_deg + 32);
+      for (uint32_t i = 0; i < old_deg; ++i) {
+        uint32_t nbr = old_nbrs[i];
+        if (nbr != id) {
+          cand.push_back(nbr);
+        }
+      }
+
+      // 5.2 把 L1[id] 的增量邻居抽干并追加到候选里
+      if (l1 != nullptr) {
+        std::vector<uint32_t> delta;
+        l1->drain_neighbors(id, delta);  // L1[id] -> delta，并清空 L1[id]
+        cand.insert(cand.end(), delta.begin(), delta.end());
+      }
+
+      if (cand.empty()) {
+        node.nnbrs = 0;
+        *(node.nbrs - 1) = 0;
+        continue;
+      }
+
+      // 5.3 去重 + 去 self-loop
+      std::sort(cand.begin(), cand.end());
+      cand.erase(std::unique(cand.begin(), cand.end()), cand.end());
+      cand.erase(std::remove(cand.begin(), cand.end(), id), cand.end());
+
+      if (cand.empty()) {
+        node.nnbrs = 0;
+        *(node.nbrs - 1) = 0;
+        continue;
+      }
+
+      if (cand.size() > MAX_N_EDGES) {
+        cand.resize(MAX_N_EDGES);
+      }
+
+      // 5.4 PQ 剪枝
+      std::vector<uint32_t> new_nhood;
+      new_nhood.reserve(cand.size());
+
+      if (cand.size() <= this->range) {
+        new_nhood.assign(cand.begin(), cand.end());
+      } else {
+        std::vector<float> dists(cand.size(), 0.0f);
+        std::vector<Neighbor> pool(cand.size());
+
+        this->nbr_handler->compute_dists(
+            id, cand.data(), cand.size(), dists.data(), thread_pq_buf);
+
+        for (uint32_t k = 0; k < cand.size(); ++k) {
+          pool[k].id = cand[k];
+          pool[k].distance = dists[k];
+        }
+        std::sort(pool.begin(), pool.end());
+        if (pool.size() > this->maxc) {
+          pool.resize(this->maxc);
+        }
+
+        this->prune_neighbors_pq(pool, new_nhood, thread_pq_buf);
+      }
+
+      node.nnbrs = static_cast<uint32_t>(new_nhood.size());
+      *(node.nbrs - 1) = node.nnbrs;
+      if (node.nnbrs > 0) {
+        memcpy(node.nbrs, new_nhood.data(), node.nnbrs * sizeof(uint32_t));
+      }
     }
 
-    // 4. 复用原有的按扇区 merge 逻辑：
-    //    L0[v] + L1[v] → cand → PQ 剪枝 → 新的 L0[v]，并写回这一页
-    void *ctx = reader->get_ctx();
-    this->merge_nodes_on_sector(page, nodes_in_page, ctx);
+    // 注意：sector_buf 现在是「重剪枝后」的这一页，我们不会再写回旧页，而是搬到新 loc
+
+    // 6. 为这一页上的所有点一次性分配新的 loc
+    std::set<uint64_t> page_need_to_read;
+    std::vector<uint64_t> new_locs =
+        this->alloc_loc(static_cast<int>(ids.size()),
+                        std::vector<uint64_t>{},  // hint_pages 为空
+                        page_need_to_read);
+
+    if (new_locs.size() != ids.size()) {
+      LOG(ERROR) << "[MERGE][INLINE] alloc_loc failed: ids=" << ids.size()
+                << " new_locs=" << new_locs.size();
+      // 这里直接把资源释放掉，走同步路径的清理
+      v2::unlockReqs(this->page_lock_table, pages_locked);
+      reader->deref(&read_page_ref, ctx);
+      this->push_query_buf(buf);
+      return;
+    }
+
+    // 7. 为每个目标页准备一个 page buffer（不 pre-read，因为 alloc_loc 只用了空页/新页）
+    std::map<uint64_t, char *> page_buf_map;
+    for (uint64_t loc : new_locs) {
+      uint64_t dst_page = this->loc_sector_no(loc);
+      if (page_buf_map.find(dst_page) == page_buf_map.end()) {
+        char *dst_buf = nullptr;
+        pipeann::alloc_aligned((void **) &dst_buf,
+                              this->size_per_io,
+                              SECTOR_LEN);
+        memset(dst_buf, 0, this->size_per_io);
+        page_buf_map[dst_page] = dst_buf;
+      }
+    }
+
+    // 8. 把旧页里的每个点拷贝到对应的新 loc（新页 buffer）
+    for (size_t i = 0; i < ids.size(); ++i) {
+      uint64_t old_loc = old_locs[i];
+      uint64_t new_loc = new_locs[i];
+
+      uint64_t dst_page = this->loc_sector_no(new_loc);
+      char *dst_buf = page_buf_map[dst_page];
+
+      char *src_node_buf = this->offset_to_loc(sector_buf, old_loc);
+      char *dst_node_buf = this->offset_to_loc(dst_buf, new_loc);
+
+      memcpy(dst_node_buf, src_node_buf, this->max_node_len);
+    }
+
+    // 9. 在锁保护下更新 id2loc / loc2id，并让旧页进入 empty_pages
+    auto locked_idx = this->lock_idx(this->idx_lock_table, kInvalidID, ids);
+    auto locked_page_idx = this->lock_page_idx(this->page_idx_lock_table, kInvalidID, ids);
+
+    for (size_t i = 0; i < ids.size(); ++i) {
+      this->set_id2loc(ids[i], static_cast<uint32_t>(new_locs[i]));
+    }
+    this->erase_and_set_loc(old_locs, new_locs, ids);
+
+    this->unlock_page_idx(this->page_idx_lock_table, locked_page_idx);
+    this->unlock_idx(this->idx_lock_table, locked_idx);
+
+    // 10. 把新页写回磁盘：由宏控制同步/异步写盘
+  #ifdef BG_IO_THREAD
+    // 10.1 异步写盘：把 page_buf_map 搬到一个连续的 update_buf 中
+    assert(buf->update_buf == nullptr);
+    const size_t num_pages = page_buf_map.size();
+    const size_t total_bytes = num_pages * this->size_per_io;
+    pipeann::alloc_aligned(reinterpret_cast<void **>(&buf->update_buf),
+                          total_bytes,
+                          SECTOR_LEN);
+    char *update_base = buf->update_buf;
+
+    std::vector<IORequest> writes;
+    writes.reserve(num_pages);
+
+    size_t page_idx = 0;
+    for (auto &kv : page_buf_map) {
+      uint64_t dst_page = kv.first;
+      char *src = kv.second;
+      char *dst = update_base + page_idx * this->size_per_io;
+      memcpy(dst, src, this->size_per_io);
+
+      writes.emplace_back(
+          IORequest(dst_page * SECTOR_LEN,
+                    this->size_per_io,
+                    dst,
+                    0,
+                    0));
+      ++page_idx;
+    }
+
+    // 本地的 page buffer 可以释放了（真正的写盘 buffer 在 update_buf 里）
+    for (auto &kv : page_buf_map) {
+      pipeann::aligned_free(kv.second);
+    }
+    page_buf_map.clear();
+
+    // 10.2 封装 BgTask：写新页 + 解锁旧页 + deref + 归还 QueryBuffer
+    auto *task = new BgTask();
+    task->thread_data = buf;
+    task->terminate = false;
+    task->writes = std::move(writes);
+    task->pages_to_unlock = std::move(pages_locked);   // 解锁旧页
+    task->pages_to_deref = std::move(read_page_ref);   // deref 旧页的 cache
+
+    this->bg_tasks.push(task);
+    this->bg_tasks.push_notify_all();
+
+  #else   // 同步写盘路径
+
+    std::vector<IORequest> writes;
+    writes.reserve(page_buf_map.size());
+    for (auto &kv : page_buf_map) {
+      uint64_t dst_page = kv.first;
+      char *buf_page = kv.second;
+      writes.emplace_back(
+          IORequest(dst_page * SECTOR_LEN,
+                    this->size_per_io,
+                    buf_page,
+                    0,
+                    0));
+    }
+
+    // 当前线程直接写盘
+    reader->write(writes, ctx, /*async=*/false);
+
+    // 释放新页 buffer
+    for (auto &kv : page_buf_map) {
+      pipeann::aligned_free(kv.second);
+    }
+    page_buf_map.clear();
+
+    // 解锁旧页 + deref cache
+    v2::unlockReqs(this->page_lock_table, pages_locked);
+    reader->deref(&read_page_ref, ctx);
+
+    // 同步模式下由当前线程归还 QueryBuffer
+    this->push_query_buf(buf);
+
+  #endif  // BG_IO_THREAD
+
+    // LOG(INFO) << "[MERGE][INLINE] page=" << page
+    //           << " relocated, num_ids=" << ids.size();
+
   #else
     (void) center;
-  #endif
+  #endif  // SSD_L1_MERGE_MODE == SSD_L1_MERGE_INLINE_PAGE
   }
+
 
 
 

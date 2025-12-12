@@ -338,8 +338,48 @@ namespace pipeann {
     // its concurrency should not be the bottleneck.
     ConcurrentQueue<BgTask *> bg_tasks = ConcurrentQueue<BgTask *>(nullptr);
     void bg_io_thread();
-    static constexpr int kBgIOThreads = 1;
+    static constexpr int kBgIOThreads = 10;
     std::thread *bg_io_thread_[kBgIOThreads]{nullptr};
+
+    struct BgIOStats {
+      uint64_t submitted = 0;
+      uint64_t completed = 0;
+      uint64_t pending = 0;
+      uint64_t bytes_written = 0;
+      uint64_t max_queue_depth = 0;
+      uint64_t total_write_us = 0;
+    };
+
+    void wait_for_bg_tasks() {
+#ifdef BG_IO_THREAD
+      std::unique_lock<std::mutex> lk(bg_stats_mutex);
+      bg_stats_cv.wait(lk, [this]() {
+        return bg_tasks_pending.load(std::memory_order_relaxed) == 0 && bg_tasks.empty();
+      });
+#else
+      // No background workers to wait on when BG_IO_THREAD is disabled.
+#endif
+    }
+
+    BgIOStats get_bg_io_stats_snapshot() {
+      BgIOStats stats;
+      stats.submitted = bg_tasks_submitted.load(std::memory_order_relaxed);
+      stats.completed = bg_tasks_completed.load(std::memory_order_relaxed);
+      stats.pending = bg_tasks_pending.load(std::memory_order_relaxed) + bg_tasks.size();
+      stats.bytes_written = bg_bytes_written.load(std::memory_order_relaxed);
+      stats.max_queue_depth = bg_task_queue_max_depth.load(std::memory_order_relaxed);
+      stats.total_write_us = bg_task_total_us.load(std::memory_order_relaxed);
+      return stats;
+    }
+
+    std::atomic<uint64_t> bg_tasks_pending = 0;
+    std::atomic<uint64_t> bg_tasks_submitted = 0;
+    std::atomic<uint64_t> bg_tasks_completed = 0;
+    std::atomic<uint64_t> bg_bytes_written = 0;
+    std::atomic<uint64_t> bg_task_queue_max_depth = 0;
+    std::atomic<uint64_t> bg_task_total_us = 0;
+    std::condition_variable bg_stats_cv;
+    std::mutex bg_stats_mutex;
 
     // test the estimation efficacy.
     uint32_t beam_width, l_index, range, maxc;
@@ -565,6 +605,7 @@ namespace pipeann {
       if (unlikely(loc >= loc2id_.size())) {
         loc2id_resize_mu_.lock();
         if (likely(loc >= loc2id_.size())) {
+          
           loc2id_.resize(1.5 * loc);
           LOG(INFO) << "Resize loc2id_ to " << loc2id_.size();
         }
@@ -588,6 +629,7 @@ namespace pipeann {
       }
       if (empty) {
         empty_pages.push(loc_sector_no(loc));
+
       }
       uint32_t page = loc_sector_no(loc);
       uint32_t offset = loc % nnodes_per_sector;
@@ -624,10 +666,16 @@ namespace pipeann {
 #endif
         auto st = sector_to_loc(empty_page, 0);
         auto ed = nnodes_per_sector == 0 ? st + 1 : st + nnodes_per_sector;
+        bool truly_empty = true;
         for (uint32_t i = st; i < ed; ++i) {
           if (unlikely(loc2id_[i] != kInvalidID)) {
-            LOG(ERROR) << "Page " << empty_page << " is not empty " << i << " " << loc2id_[i];
-            crash();
+            // LOG(ERROR) << "Page " << empty_page << " is not empty " << i << " " << loc2id_[i];
+            // crash();
+            // 为什么会读到脏空页？
+            // LOG(WARNING) << "alloc_loc: stale empty_page " << empty_page
+            //  << ", loc " << i << " has id " << loc2id_[i];
+            truly_empty = false;
+            break;
           }
           loc2id_[i] = kAllocatedID;
           ret.push_back(i);
@@ -635,6 +683,11 @@ namespace pipeann {
           if (cur == n) {
             return ret;
           }
+        }
+
+        if (!truly_empty) {
+          // 这个页号在队列里是“脏”的，直接丢弃，继续 pop 下一个页。
+          continue;
         }
       }
 

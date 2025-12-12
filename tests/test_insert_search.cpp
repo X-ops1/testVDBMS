@@ -239,8 +239,25 @@ void insertion_kernel(T *data_load, pipeann::DynamicSSDIndex<T, TagT> &sync_inde
   }
 
   float time_secs = timer.elapsed() / 1.0e6f;
+
+#ifdef BG_IO_THREAD
+  pipeann::Timer drain_timer;
+  sync_index._disk_index->wait_for_bg_tasks();
+  float drain_secs = drain_timer.elapsed() / 1.0e6f;
+  float total_secs = timer.elapsed() / 1.0e6f;
+  auto bg_stats = sync_index._disk_index->get_bg_io_stats_snapshot();
+  LOG(INFO) << "Background IO stats - submitted: " << bg_stats.submitted
+            << " completed: " << bg_stats.completed << " pending: " << bg_stats.pending
+            << " bytes_written: " << bg_stats.bytes_written
+            << " total_write_ms: " << (bg_stats.total_write_us / 1000.0)
+            << " max_queue_depth: " << bg_stats.max_queue_depth
+            << " wait_for_bg_threads: " << drain_secs << "s";
+#else
+  float total_secs = time_secs;
+#endif
   std::sort(insert_latencies.begin(), insert_latencies.end());
-  LOG(INFO) << "Inserted " << insert_vec.size() << " points in " << time_secs << "s";
+  LOG(INFO) << "Inserted " << insert_vec.size() << " points in " << total_secs
+            << "s (front-end: " << time_secs << "s)";
   LOG(INFO) << "10p insertion time : " << insert_latencies[(size_t) (0.10 * ((double) npts))] << " us";
   LOG(INFO) << "50p insertion time : " << insert_latencies[(size_t) (0.5 * ((double) npts))] << " us";
   LOG(INFO) << "90p insertion time : " << insert_latencies[(size_t) (0.90 * ((double) npts))] << " us";

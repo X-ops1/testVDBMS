@@ -32,7 +32,7 @@ add_definitions(
 	$ENV{ADDITIONAL_DEFINITIONS}
 	-DNDEBUG
 	# -DIN_PLACE_RECORD_UPDATE # disable design #1
-	-DBG_IO_THREAD # enable opt #1.2
+	# -DBG_IO_THREAD # enable opt #1.2
 
 	# -DNO_POLLUTE_ORIGINAL
 

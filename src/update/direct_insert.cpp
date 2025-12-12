@@ -26,9 +26,6 @@
 #include "v2/l1_neighbor_table.h"
 #include <cassert>
 
-#ifndef BG_IO_THREAD
-#define BG_IO_THREAD
-#endif
 
 namespace pipeann {
 
@@ -153,8 +150,8 @@ namespace pipeann {
     memset(page_buf, 0, size_per_io);
 
     {
-      auto page_lock = this->page_lock(sector);
-      std::unique_lock<std::shared_timed_mutex> sector_guard(page_lock);
+      auto &page_mtx = page_lock(sector);
+      std::unique_lock<std::mutex> sector_guard(page_mtx);
 
       std::vector<IORequest> reads;
       reads.emplace_back(IORequest(off, size_per_io, page_buf, 0, 0));
@@ -185,20 +182,13 @@ namespace pipeann {
 
   #endif  // BG_IO_THREAD
 
-    // -------- 4.3 只更新 L1 里的反向边，不动老页 --------
+    // -------- 4.3 更新 L1 里的反向边 --------
     auto *l1 = this->l1_table_;
     if (l1 != nullptr) {
-      // 新策略：
-      //   - L1 只负责记录 “new -> v” 的增量回边；
-      //   - 不在这里做轻剪，避免在插入路径上增加额外开销；
-      //   - 当某个 v 的 L1[v] 长度达到 fanout_B_ 时，
-      //     L1NeighborTable 会通过 merge_hook_ 调用 SSDIndex::enqueue_merge_node(v)，
-      //     由后台 merge_worker_thread → merge_nodes_on_sector 进行真正的 L0+L1 重剪。
       for (auto v : new_nhood) {
         l1->add_backlink(v, new_id);
       }
     }
-
     // -------- 4.4 清理、返回 --------
     #ifndef BG_IO_THREAD
       // 同步写盘时，插入线程自己归还 QueryBuffer
@@ -208,183 +198,48 @@ namespace pipeann {
   }
 
 
-  // 然后把这一整页合并并写回（通过 BgTask 交给后台线程写盘）
-  template<class T, class TagT>
-  void SSDIndex<T, TagT>::merge_nodes_on_sector(uint64_t sector,
-                                                const std::vector<uint32_t> &nodes,
-                                                void *ctx) {
-    if (nodes.empty()) {
-      return;
-    }
+  // template<class T, class TagT>
+  // void SSDIndex<T, TagT>::bg_io_thread() {
+  //   LOG(INFO) << "bg_io_thread started.";
+  //   auto ctx = reader->get_ctx();
+  //   auto timer = pipeann::Timer();
+  //   uint64_t n_tasks = 0;
 
-    // LOG(INFO) << "[MERGE] merge_nodes_on_sector BEGIN: sec tor=" << sector
-    //           << ", nodes_to_merge=" << nodes.size();
+  //   while (true) {
+  //     auto task = bg_tasks.pop();
+  //     while (task == nullptr) {
+  //       this->bg_tasks.wait_for_push_notify();
+  //       task = bg_tasks.pop();
+  //     }
 
-    // 1. 拿一个 QueryBuffer，当成本次 merge 的 scratch
-    //    这里传 nullptr 就不会去填充 aligned_query_T
-    QueryBuffer<T> *buf = this->pop_query_buf(nullptr);
-    char *sector_buf = buf->sector_scratch;
-    uint8_t *thread_pq_buf = buf->nbr_vec_scratch;  // PQ 剪枝用的 scratch
+  //     if (unlikely(task->terminate)) {
+  //       LOG(INFO) << "bg_io_thread received terminate task, exiting. "
+  //                 << "processed_tasks_so_far=" << n_tasks;
+  //       delete task;
+  //       break;
+  //     }
 
-    // 2. 页级锁：锁住这一页，防止并发写
-    std::vector<IORequest> pages_to_rmw;
-    pages_to_rmw.emplace_back(
-        IORequest(sector * SECTOR_LEN, this->size_per_io, nullptr, 0, 0));
-    // page_lock_table 是 SparseLockTable<uint64_t>，直接用旧逻辑加锁
-    std::vector<uint64_t> pages_locked = v2::lockReqs(this->page_lock_table, pages_to_rmw);
+  //     reader->write(task->writes, ctx);
+  //     aligned_free(task->thread_data->update_buf);
+  //     task->thread_data->update_buf = nullptr;
 
-    // 3. 读入这一页（带 page cache 的 read_alloc）
-    std::vector<IORequest> reads;
-    reads.emplace_back(
-        IORequest(sector * SECTOR_LEN, this->size_per_io, sector_buf, 0, 0));
-    std::vector<uint64_t> read_page_ref;
-    this->reader->read_alloc(reads, ctx, &read_page_ref);
+  //     v2::unlockReqs(this->page_lock_table, task->pages_to_unlock);
+  //     reader->deref(&task->pages_to_deref, ctx);
+  //     this->push_query_buf(task->thread_data);
+  //     delete task;
+  //     ++n_tasks;
 
-    // 4. 对属于这一页的每个点 v 做「L0 + L1 → 重剪枝」
-    auto *l1 = this->l1_table_;
-
-    for (uint32_t id : nodes) {
-      // 4.0 保护一下非法 id / loc
-      uint64_t loc = this->id2loc(id);
-      if (loc >= this->cur_loc) {
-        continue;  // 已经被删掉或无效
-      }
-      if (this->loc_sector_no(loc) != sector) {
-        continue;  // 双重保险：只处理确实在这一页上的点
-      }
-
-      // 4.1 在该页 buffer 中定位到该点的 node 区域
-      char *node_buf = this->offset_to_loc(sector_buf, loc);
-      DiskNode<T> node(id,
-                      this->offset_to_node_coords(node_buf),
-                      this->offset_to_node_nhood(node_buf));
-
-      uint32_t old_deg = node.nnbrs;
-      uint32_t *old_nbrs = node.nbrs;
-
-      // 4.2 收集候选邻居：旧的 L0 邻居
-      std::vector<uint32_t> cand;
-      cand.reserve(old_deg + 32);
-
-      for (uint32_t i = 0; i < old_deg; ++i) {
-        uint32_t nbr = old_nbrs[i];
-        if (nbr != id) {  // 自环直接跳过
-          cand.push_back(nbr);
-        }
-      }
-
-      // 4.3 把 L1[v] 的增量邻居抽干并追加到候选里
-      if (l1 != nullptr) {
-        std::vector<uint32_t> delta;
-        l1->drain_neighbors(id, delta);  // L1[id] → delta，并清空 L1[id]
-        cand.insert(cand.end(), delta.begin(), delta.end());
-      }
-
-      if (cand.empty()) {
-        // 没有邻居了，直接把 L0 清空
-        node.nnbrs = 0;
-        *(node.nbrs - 1) = 0;  // DiskNode 约定：nbrs[-1] 存 nnbrs
-        continue;
-      }
-
-      // 4.4 去重 + 去 self-loop
-      std::sort(cand.begin(), cand.end());
-      cand.erase(std::unique(cand.begin(), cand.end()), cand.end());
-      cand.erase(std::remove(cand.begin(), cand.end(), id), cand.end());
-
-      if (cand.empty()) {
-        node.nnbrs = 0;
-        *(node.nbrs - 1) = 0;
-        continue;
-      }
-
-      if (cand.size() > MAX_N_EDGES) {
-        cand.resize(MAX_N_EDGES);
-      }
-
-      // 4.5 基于 PQ 的 L0 重剪枝：cand (L0+L1) → new_nhood (最多 range 条边)
-      std::vector<uint32_t> new_nhood;
-      new_nhood.reserve(cand.size());
-
-      if (cand.size() <= this->range) {
-        // 候选数量本身不超过出度上限，直接使用，也可以选择仍然做一次 occlusion
-        new_nhood.assign(cand.begin(), cand.end());
-      } else {
-        // 使用 PQ 近似距离 + occlusion 进行剪枝，逻辑复用 prune_neighbors_pq
-        std::vector<float> dists(cand.size(), 0.0f);
-        std::vector<Neighbor> pool(cand.size());
-
-        // 4.5.1 用 PQ 估计 dist(id, cand[k])
-        this->nbr_handler->compute_dists(
-            id,
-            cand.data(),
-            cand.size(),
-            dists.data(),
-            thread_pq_buf  // 复用 QueryBuffer 里的 scratch
-        );
-
-        // 4.5.2 组装 Neighbor 池并按距离排序
-        for (uint32_t k = 0; k < cand.size(); ++k) {
-          pool[k].id = cand[k];
-          pool[k].distance = dists[k];
-        }
-        std::sort(pool.begin(), pool.end());   // Neighbor::operator< 默认按 distance 升序
-        if (pool.size() > this->maxc) {
-          pool.resize(this->maxc);
-        }
-
-        // 4.5.3 用 PQ 的 occlusion 规则剪枝为 ≤ range 条边
-        this->prune_neighbors_pq(pool, new_nhood, thread_pq_buf);
-      }
-
-      // 4.6 把新的邻居列表写回 page buffer 里的 node
-      node.nnbrs = static_cast<uint32_t>(new_nhood.size());
-      *(node.nbrs - 1) = node.nnbrs;
-      if (node.nnbrs > 0) {
-        memcpy(node.nbrs, new_nhood.data(), node.nnbrs * sizeof(uint32_t));
-      }
-
-      // 如果后面给 PQ 邻接（nbr_handler）增加 “set_nbrs / update_nbrs” 接口，
-      // 可以在这里同步 PQ 图，比如：
-      //
-      //   this->nbr_handler->update_nbrs(id, new_nhood.data(), node.nnbrs);
-      //
-      // 为了不和现有接口冲突，这里先不调用任何 PQ 更新函数。
-    }
-
-    // 5. 把修改过的这一页复制到 update_buf，交给后台写盘线程
-    //    update_buf 在 bg_io_thread 里写完之后会被 aligned_free，并把 buf 归还 buffer 池。
-    assert(buf->update_buf == nullptr);
-    pipeann::alloc_aligned(reinterpret_cast<void **>(&buf->update_buf),
-                          this->size_per_io,
-                          SECTOR_LEN);
-    memcpy(buf->update_buf, sector_buf, this->size_per_io);
-
-    char *update_buf = buf->update_buf;
-
-    // 6. 封装 BgTask，异步写盘 + 解锁 + deref cache
-    auto *task = new BgTask();
-    task->thread_data = buf;
-    task->terminate = false;
-
-    task->writes.clear();
-    task->writes.emplace_back(
-        IORequest(sector * SECTOR_LEN, this->size_per_io, update_buf, 0, 0));
-
-    task->pages_to_unlock = std::move(pages_locked);
-    task->pages_to_deref = std::move(read_page_ref);
-
-    this->bg_tasks.push(task);
-    this->bg_tasks.push_notify_all();
-
-    // LOG(INFO) << "[MERGE] merge_nodes_on_sector END: sector=" << sector
-    //           << ", nodes_to_merge=" << nodes.size()
-    //           << ", write_bytes=" << this->size_per_io;
-  }
+  //     if (timer.elapsed() >= 5000000) {
+  //       LOG(INFO) << "Processed " << n_tasks << " tasks, throughput: " << (double) n_tasks * 1e6 / timer.elapsed()
+  //                 << " tasks/sec.";
+  //       timer.reset();
+  //       n_tasks = 0;
+  //     }
+  //   }
+  // }
 
   template<class T, class TagT>
   void SSDIndex<T, TagT>::bg_io_thread() {
-    LOG(INFO) << "bg_io_thread started.";
     auto ctx = reader->get_ctx();
     auto timer = pipeann::Timer();
     uint64_t n_tasks = 0;
@@ -397,13 +252,18 @@ namespace pipeann {
       }
 
       if (unlikely(task->terminate)) {
-        LOG(INFO) << "bg_io_thread received terminate task, exiting. "
-                  << "processed_tasks_so_far=" << n_tasks;
         delete task;
         break;
       }
 
+      pipeann::Timer task_timer;
       reader->write(task->writes, ctx);
+      uint64_t bytes_written = 0;
+      for (const auto &req : task->writes) {
+        bytes_written += req.len;
+      }
+      bg_bytes_written.fetch_add(bytes_written, std::memory_order_relaxed);
+      bg_task_total_us.fetch_add(task_timer.elapsed(), std::memory_order_relaxed);
       aligned_free(task->thread_data->update_buf);
       task->thread_data->update_buf = nullptr;
 
@@ -411,11 +271,20 @@ namespace pipeann {
       reader->deref(&task->pages_to_deref, ctx);
       this->push_query_buf(task->thread_data);
       delete task;
+      bg_tasks_completed.fetch_add(1, std::memory_order_relaxed);
+      uint64_t pending_after = bg_tasks_pending.fetch_sub(1, std::memory_order_relaxed) - 1;
+      if (pending_after == 0) {
+        std::unique_lock<std::mutex> lk(bg_stats_mutex);
+        bg_stats_cv.notify_all();
+      }
       ++n_tasks;
 
       if (timer.elapsed() >= 5000000) {
-        LOG(INFO) << "Processed " << n_tasks << " tasks, throughput: " << (double) n_tasks * 1e6 / timer.elapsed()
-                  << " tasks/sec.";
+        auto current_depth = bg_tasks_pending.load(std::memory_order_relaxed) + bg_tasks.size();
+        double throughput = static_cast<double>(n_tasks) * 1e6 / static_cast<double>(timer.elapsed());
+        LOG(INFO) << "Processed " << n_tasks << " tasks, throughput: " << throughput
+                  << " tasks/sec. Pending: " << bg_tasks_pending.load(std::memory_order_relaxed)
+                  << " Queue depth: " << current_depth;
         timer.reset();
         n_tasks = 0;
       }
