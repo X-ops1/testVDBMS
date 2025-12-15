@@ -667,8 +667,31 @@ namespace pipeann {
         auto st = sector_to_loc(empty_page, 0);
         auto ed = nnodes_per_sector == 0 ? st + 1 : st + nnodes_per_sector;
         bool truly_empty = true;
-        for (uint32_t i = st; i < ed; ++i) {
-          if (unlikely(loc2id_[i] != kInvalidID)) {
+      //   for (uint32_t i = st; i < ed; ++i) {
+      //     if (unlikely(loc2id_[i] != kInvalidID)) {
+      //       // LOG(ERROR) << "Page " << empty_page << " is not empty " << i << " " << loc2id_[i];
+      //       // crash();
+      //       // 为什么会读到脏空页？
+      //       // LOG(WARNING) << "alloc_loc: stale empty_page " << empty_page
+      //       //  << ", loc " << i << " has id " << loc2id_[i];
+      //       truly_empty = false;
+      //       break;
+      //     }
+      //     loc2id_[i] = kAllocatedID;
+      //     ret.push_back(i);
+      //     ++cur;
+      //     if (cur == n) {
+      //       return ret;
+      //     }
+      //   }
+
+      //   if (!truly_empty) {
+      //     // 这个页号在队列里是“脏”的，直接丢弃，继续 pop 下一个页。
+      //     continue;
+      //   }
+      // }
+        for (uint64_t i = st; i < ed; i++) {
+          if (unlikely(loc2id_[i] != kInvalidID)) {  // 只要发现一个非空，整页放弃
             // LOG(ERROR) << "Page " << empty_page << " is not empty " << i << " " << loc2id_[i];
             // crash();
             // 为什么会读到脏空页？
@@ -677,17 +700,14 @@ namespace pipeann {
             truly_empty = false;
             break;
           }
+        }
+        if (!truly_empty) continue;
+
+        // 只有整页都空，才开始分配
+        for (uint64_t i = st; i < ed; i++) {
           loc2id_[i] = kAllocatedID;
           ret.push_back(i);
-          ++cur;
-          if (cur == n) {
-            return ret;
-          }
-        }
-
-        if (!truly_empty) {
-          // 这个页号在队列里是“脏”的，直接丢弃，继续 pop 下一个页。
-          continue;
+          if (++cur == n) return ret;
         }
       }
 
