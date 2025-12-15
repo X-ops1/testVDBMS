@@ -49,3 +49,5 @@ QUERY_SRC="/DATA/dataset/SIFT/bigann/bigann_query.bin"
 
 # 8. 清理shadow索引
 rm -f "$ROOT/index_1M"_shadow*
+
+ceshi
