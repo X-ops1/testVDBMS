@@ -252,6 +252,7 @@ namespace pipeann {
     void occlude_list_pq(std::vector<Neighbor> &pool, std::vector<Neighbor> &result, std::vector<float> &occlude_factor,
                          uint8_t *scratch);
     void prune_neighbors_pq(std::vector<Neighbor> &pool, std::vector<uint32_t> &pruned_list, uint8_t *scratch);
+    void delete_in_place(const TagT &tag, tsl::robin_set<uint32_t> *deletion_set);
 
     void set_l1_table(v2::L1NeighborTable *t) {
       l1_table_ = t;
@@ -390,6 +391,8 @@ namespace pipeann {
 
     // if ID == tag, then it is not stored.
     libcuckoo::cuckoohash_map<uint32_t, TagT> tags;
+    libcuckoo::cuckoohash_map<TagT, uint32_t> ids_;
+
     TagT id2tag(uint32_t id) {
 #ifdef NO_MAPPING
       return id;  // use ID to replace tags.
@@ -401,6 +404,16 @@ namespace pipeann {
         return id;
       }
 #endif
+    }
+
+    uint32_t tag2id( TagT tag) {
+      uint32_t ret;
+      if( this->ids_.find( tag, ret)) {
+        return ret;
+      }
+      else {
+        return tag;
+      }
     }
 
     int get_vector_by_id(const uint32_t &id, T *vector);
@@ -428,10 +441,39 @@ namespace pipeann {
       }
     }
 
+    uint32_t optimize_lock_id( uint32_t target, bool rd = false) {
+      uint64_t new_page, old_page;
+      idx_lock_table.rdlock( target);
+      uint32_t new_loc, old_loc = id2loc( target);
+      idx_lock_table.unlock( target);
+      while( true) {
+        if( old_loc == kInvalidID) break;
+        old_page = loc_sector_no( old_loc);
+        // LOG(INFO) << "1";
+        rd ? page_lock_table.rdlock( old_page) : page_lock_table.wrlock( old_page);
+        // LOG(INFO) << "2";
+        // when a page is locked, no thread can change the id map in this page
+        idx_lock_table.rdlock( target);
+        new_loc = id2loc( target);
+        idx_lock_table.unlock( target);
+        if( new_loc == old_loc) {
+          break;
+        }
+        page_lock_table.unlock( old_page);
+        old_loc = new_loc;
+      }
+      return old_loc;
+    }
+
    private:
     std::vector<uint32_t> get_to_lock_idx(uint32_t target, const std::vector<uint32_t> &neighbors) {
       std::vector<uint32_t> to_lock;
-      to_lock.assign(neighbors.begin(), neighbors.end());
+      // to_lock.assign(neighbors.begin(), neighbors.end());
+      for( auto tmp : neighbors) {
+        if( tmp != kInvalidID) {
+          to_lock.push_back(tmp);
+        }
+      }
       if (target != kInvalidID) {
         to_lock.push_back(target);
       }
@@ -647,6 +689,21 @@ namespace pipeann {
       }
     }
 
+    uint32_t alloc_1page() {
+      std::lock_guard<std::mutex> lock(alloc_lock);
+      uint32_t empty_page = kInvalidID;
+      if ((empty_page = empty_pages.pop()) != kInvalidID) {
+        return empty_page;
+      }
+      empty_page = loc_sector_no( cur_loc + nnodes_per_sector);
+      uint32_t st_loc = sector_to_loc( empty_page, 0);
+      for( uint32_t i = 0; i < nnodes_per_sector; i++) {
+        set_loc2id(st_loc + i, kAllocatedID);
+      }
+      cur_loc = st_loc + nnodes_per_sector;
+      return empty_page;
+    }
+
     // returns <loc, need_read>
     std::vector<uint64_t> alloc_loc(int n, const std::vector<uint64_t> &hint_pages,
                                     std::set<uint64_t> &page_need_to_read) {
@@ -667,31 +724,8 @@ namespace pipeann {
         auto st = sector_to_loc(empty_page, 0);
         auto ed = nnodes_per_sector == 0 ? st + 1 : st + nnodes_per_sector;
         bool truly_empty = true;
-      //   for (uint32_t i = st; i < ed; ++i) {
-      //     if (unlikely(loc2id_[i] != kInvalidID)) {
-      //       // LOG(ERROR) << "Page " << empty_page << " is not empty " << i << " " << loc2id_[i];
-      //       // crash();
-      //       // 为什么会读到脏空页？
-      //       // LOG(WARNING) << "alloc_loc: stale empty_page " << empty_page
-      //       //  << ", loc " << i << " has id " << loc2id_[i];
-      //       truly_empty = false;
-      //       break;
-      //     }
-      //     loc2id_[i] = kAllocatedID;
-      //     ret.push_back(i);
-      //     ++cur;
-      //     if (cur == n) {
-      //       return ret;
-      //     }
-      //   }
-
-      //   if (!truly_empty) {
-      //     // 这个页号在队列里是“脏”的，直接丢弃，继续 pop 下一个页。
-      //     continue;
-      //   }
-      // }
-        for (uint64_t i = st; i < ed; i++) {
-          if (unlikely(loc2id_[i] != kInvalidID)) {  // 只要发现一个非空，整页放弃
+        for (uint32_t i = st; i < ed; ++i) {
+          if (unlikely(loc2id_[i] != kInvalidID)) {
             // LOG(ERROR) << "Page " << empty_page << " is not empty " << i << " " << loc2id_[i];
             // crash();
             // 为什么会读到脏空页？
@@ -700,14 +734,17 @@ namespace pipeann {
             truly_empty = false;
             break;
           }
-        }
-        if (!truly_empty) continue;
-
-        // 只有整页都空，才开始分配
-        for (uint64_t i = st; i < ed; i++) {
           loc2id_[i] = kAllocatedID;
           ret.push_back(i);
-          if (++cur == n) return ret;
+          ++cur;
+          if (cur == n) {
+            return ret;
+          }
+        }
+
+        if (!truly_empty) {
+          // 这个页号在队列里是“脏”的，直接丢弃，继续 pop 下一个页。
+          continue;
         }
       }
 

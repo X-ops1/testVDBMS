@@ -38,3 +38,6 @@ target_link_libraries(pad_partition ${PROJECT_NAME} )
 
 add_executable(normalize_data normalize_data.cpp)
 target_link_libraries(normalize_data ${PROJECT_NAME})
+
+add_executable(test_wolverine test_wolverine.cpp)
+target_link_libraries(test_wolverine ${PROJECT_NAME})

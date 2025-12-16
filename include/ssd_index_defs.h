@@ -57,6 +57,7 @@ namespace pipeann {
     uint8_t *nbr_vec_scratch = nullptr;     // MUST BE AT LEAST  [N_CHUNKS * MAX_DEGREE], for neighbor PQ vectors.
     T *aligned_query_T = nullptr;
     char *update_buf = nullptr;  // Dynamic allocate in insert_in_place.
+    char *onehop_buf = nullptr;
 
     tsl::robin_set<uint64_t> *visited = nullptr;
     tsl::robin_set<unsigned> *page_visited = nullptr;

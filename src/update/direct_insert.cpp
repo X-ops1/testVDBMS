@@ -141,9 +141,6 @@ namespace pipeann {
     task->pages_to_deref  = std::move(read_page_ref);
     task->terminate       = false;
 
-    this->bg_tasks_submitted.fetch_add(1, std::memory_order_relaxed);
-    this->bg_tasks_pending.fetch_add(1, std::memory_order_relaxed);
-
     this->bg_tasks.push(task);
     this->bg_tasks.push_notify_all();
 
@@ -253,7 +250,7 @@ namespace pipeann {
         this->bg_tasks.wait_for_push_notify();
         task = bg_tasks.pop();
       }
- 
+
       if (unlikely(task->terminate)) {
         delete task;
         break;

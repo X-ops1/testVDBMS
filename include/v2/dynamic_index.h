@@ -44,8 +44,11 @@ namespace pipeann {
     void final_merge(const uint32_t &nthreads = 0,
                      const uint32_t &n_sampled_nbrs = std::numeric_limits<uint32_t>::max());
 
-   private:
+    void wolverine_delete( const TagT &tag);
     void save_del_set();
+
+   private:
+    // void save_del_set();
     void merge(const uint32_t &nthreads, const uint32_t &n_sampled_nbrs);
 
    public:
