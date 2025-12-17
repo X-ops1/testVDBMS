@@ -359,14 +359,14 @@ void update(const std::string &data_bin, const unsigned L_disk, int vecs_per_ste
       } else if (insert_status == std::future_status::timeout) {
         ShowMemoryStatus(sync_index._disk_index_prefix_in);
         LOG(INFO) << "Number of vectors: " << sync_index._disk_index->cur_id;
-        double dummy;
-        // for (uint32_t j = 0; j < Lsearch.size(); ++j) {
-        sync_search_kernel(query, query_num, query_dim, recall_at, search_mem_L, Lsearch[0], search_beam_width,
-                           sync_index, currentFileName, false, false, dummy, index_npts);
-        sleep(1);
-        // }
-        total_queries += query_num;
-        LOG(INFO) << "Queries processed: " << total_queries;
+        // double dummy;
+        // // for (uint32_t j = 0; j < Lsearch.size(); ++j) {
+        // sync_search_kernel(query, query_num, query_dim, recall_at, search_mem_L, Lsearch[0], search_beam_width,
+        //                    sync_index, currentFileName, false, false, dummy, index_npts);
+        // sleep(1);
+        // // }
+        // total_queries += query_num;
+        // LOG(INFO) << "Queries processed: " << total_queries;
       }
       if (insert_status == std::future_status::ready) {
         LOG(INFO) << "Insertions complete!\n";
