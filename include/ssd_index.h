@@ -268,8 +268,8 @@ namespace pipeann {
             });
 #elif SSD_L1_MERGE_MODE == SSD_L1_MERGE_INLINE_PAGE
         l1_table_->set_merge_hook(
-            [this](uint32_t id) {
-              this->merge_page_for_node_inline(id);
+            [this](uint32_t id, tsl::robin_set<uint32_t> *deletion_set) {
+              this->merge_page_for_node_inline(id, deletion_set);
             });
 #else
 #  error "Unknown SSD_L1_MERGE_MODE"
@@ -280,7 +280,7 @@ namespace pipeann {
     v2::L1NeighborTable *get_l1_table() const { return l1_table_; }
 
     // 新方案：插入线程在 L1[v] 达到合并阈值时，直接在当前线程做整页合并
-    void merge_page_for_node_inline(uint32_t id);
+    void merge_page_for_node_inline(uint32_t id, tsl::robin_set<uint32_t> *deletion_set);
 
     // 增量图合并线程及函数
     void merge_worker_thread();

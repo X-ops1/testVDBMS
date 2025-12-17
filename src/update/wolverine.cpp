@@ -28,6 +28,8 @@
 
 #include "linux_aligned_file_reader.h"
 
+#include "v2/l1_neighbor_table.h"
+
 namespace pipeann {
 
   template<typename T, typename TagT>
@@ -160,30 +162,6 @@ namespace pipeann {
       }
     }
 
-    // unsigned npts_hop12 = hop12_nbr_array.size();
-    // // LOG(INFO) << "# 1hop: " << valid_nnbrs << "; # 2hop: " << npts_hop12;
-    // std::vector<float> dists_del2hop12( npts_hop12, 0.0f);
-    // auto &thread_pq_buf = read_data->nbr_vec_scratch;
-    // nbr_handler->compute_dists( del_id, hop12_nbr_array.data(), npts_hop12, 
-    //                             dists_del2hop12.data(), thread_pq_buf);
-    // std::vector<std::vector<unsigned>> id_edge_from( npts_hop12);
-    // for( unsigned i = 0; i < valid_nnbrs; i++) {
-    //   std::vector<float> dists_nbr2hop12( npts_hop12, 0.0f);
-    //   nbr_handler->compute_dists( hop12_nbr_array[i], hop12_nbr_array.data(), 
-    //                               npts_hop12, dists_nbr2hop12.data(), thread_pq_buf);
-    //   float d_p_pout = dists_del2hop12[i];
-    //   for( unsigned j = 0; j < npts_hop12; j++) {
-    //     if( i == j) continue;
-    //     // squared dists
-    //     float d_x_p = dists_del2hop12[j];
-    //     float d_x_pout = dists_nbr2hop12[j];
-    //     if( d_x_p > d_p_pout + 1e-7 && d_x_pout < d_p_pout - 1e-7 &&
-    //         d_x_pout + d_p_pout > d_x_p + 1e-7) {
-    //       id_edge_from[j].push_back( hop12_nbr_array[i]);
-    //     }
-    //   }
-    // }
-
     unsigned npts_hop12 = hop12_nbr_array.size();
     std::vector<unsigned> cnt_bu( valid_nnbrs, 0);
     // LOG(INFO) << "# 1hop: " << valid_nnbrs << "; # 2hop: " << npts_hop12;
@@ -213,7 +191,7 @@ namespace pipeann {
         float d_x_p_sdc = dists_del2hop12_SDC[j];
         float d_x_p_adc = dists_del2hop12_ADC[j];
         float d_x_pout_sdc = dists_nbr2hop12_SDC[j];
-        if( d_x_p_adc > d_p_pout_adc + 1e-7 && 2 * d_p_pout_adc > d_x_p_adc &&
+        if( d_x_p_adc > d_p_pout_adc + 1e-7 && 2.0f * d_p_pout_adc > d_x_p_adc + 1e-7 &&
             d_x_pout_sdc < d_p_pout_sdc - 1e-7 && d_x_pout_sdc + d_p_pout_sdc > d_x_p_sdc + 1e-7) {
           id_edge_from[j].push_back( hop12_nbr_array[i]);
           cnt_bu[i]++;
@@ -223,87 +201,10 @@ namespace pipeann {
     }
     this->push_query_buf(tmp_qb);
 
-    // LOG(INFO) << "compute complete";
-
-    auto merge_prune = [&]( char *page_buf, unsigned target_id,
-                            std::vector<unsigned> &append_nbr) {
-      char *node_buf = offset_to_node( page_buf, target_id);
-      unsigned *old_nhood = offset_to_node_nhood( node_buf);
-      unsigned old_size = *old_nhood;
-      old_nhood += 1;
-      std::set<unsigned> new_nhood_set;
-      for( unsigned k = 0; k < old_size; k++) {
-        idx_lock_table.rdlock( old_nhood[k]);
-        if( id2loc( old_nhood[k]) != kInvalidID && deletion_set->find(old_nhood[k]) == deletion_set->end()) {
-          assert( old_nhood[k] != kInvalidID);
-          assert( old_nhood[k] != kAllocatedID);
-          new_nhood_set.insert( old_nhood[k]);
-        }
-        idx_lock_table.unlock( old_nhood[k]);
-      }
-      for( auto &new_nbr : append_nbr) {
-        idx_lock_table.rdlock( new_nbr);
-        if( id2loc( new_nbr) != kInvalidID && deletion_set->find(new_nbr) == deletion_set->end()) {
-          assert( new_nbr != kInvalidID);
-          assert( new_nbr != kAllocatedID);
-          new_nhood_set.insert( new_nbr);
-        }
-        idx_lock_table.unlock( new_nbr);
-      }
-      std::vector<unsigned> new_nhood( new_nhood_set.begin(), new_nhood_set.end());
-      unsigned new_size = new_nhood.size();
-      if ( new_size > this->range) {
-        std::vector<float> dists(new_nhood.size(), 0.0f);
-        std::vector<Neighbor> pool(new_nhood.size());
-        // Use dynamic buffer instead of pre-initialized buffer to save space.
-        uint8_t *pq_buf = nullptr;
-        pipeann::alloc_aligned((void **) &pq_buf, new_nhood.size() * AbstractNeighbor<T>::MAX_BYTES_PER_NBR, 256);
-        nbr_handler->compute_dists( target_id, new_nhood.data(), new_nhood.size(), dists.data(), pq_buf);
-        for (uint32_t k = 0; k < new_nhood.size(); k++) {
-          pool[k].id = new_nhood[k];
-          pool[k].distance = dists[k];
-        }
-        std::sort(pool.begin(), pool.end());
-        if (pool.size() > this->maxc) {
-          pool.resize(this->maxc);
-        }
-        new_nhood.clear();
-        this->prune_neighbors_pq(pool, new_nhood, pq_buf);
-        pipeann::aligned_free(pq_buf);
-      }
-      unsigned final_size = std::min( this->range, new_size);
-      unsigned *nhood_buf = offset_to_node_nhood( node_buf);
-      *nhood_buf = final_size;
-      memcpy( nhood_buf + 1, new_nhood.data(), final_size * sizeof( unsigned));
-
-      // std::vector<float> new_nbr_dists( new_size, 0.0f);
-      // nbr_handler->compute_dists( target_id, new_nhood.data(), new_size, 
-      //                             new_nbr_dists.data(), thread_pq_buf);
-      // std::vector<std::pair<float, unsigned>> pool;
-      // pool.reserve( new_size);
-      // for( unsigned k = 0; k < new_size; k++) {
-      //   pool.emplace_back( new_nbr_dists[k], new_nhood[k]);
-      // }
-      // std::sort( pool.begin(), pool.end());
-      // unsigned final_size = std::min( this->range, new_size);
-      // new_nhood.resize( final_size);
-      // for( unsigned k = 0; k < final_size; k++) {
-      //   new_nhood[k] = pool[k].second;
-      // }
-      // unsigned *nhood_buf = offset_to_node_nhood( node_buf);
-      // *nhood_buf = final_size;
-      // memcpy( nhood_buf + 1, new_nhood.data(), final_size * sizeof( unsigned));
-    };
-
-    assert(read_data->update_buf == nullptr);
-    pipeann::alloc_aligned((void **) &read_data->update_buf, npts_hop12 * size_per_io, SECTOR_LEN);
-    auto &write_buf = read_data->update_buf;
-    uint64_t page_enum_id_new = 0;
     std::vector<bool> modified( npts_hop12, false);
-    std::vector<IORequest> nxt_write_req;
 
     for( unsigned i = 0; i < npts_hop12; i++) {
-      if( modified[i]) {
+      if( modified[i] || id_edge_from[i].empty()) {
         continue;
       }
       uint32_t cur_loc = optimize_lock_id( hop12_nbr_array[i], false);
@@ -312,66 +213,46 @@ namespace pipeann {
         page_lock_table.unlock( cur_page);
         continue;
       }
-      char *cur_page_buf;
-      nxt_read_req.clear();
-      cur_page_buf = write_buf + page_enum_id_new * ((uint64_t) (size_per_io));
-      page_enum_id_new++;
-      nxt_read_req.emplace_back( cur_page * SECTOR_LEN, size_per_io, cur_page_buf, 0, 0);
-      reader->read_alloc(nxt_read_req, ctx);
+
+      std::vector<std::pair<uint32_t, uint32_t>> page_append;
+      std::vector<uint32_t> id2check;
       PageArr layout = get_page_layout(cur_page);
       for( auto &cur_id : layout) {
         if( cur_id == kInvalidID) {
           continue;
         }
+        id2check.push_back( cur_id);
         if( hop12_nbr_map.find( cur_id) == hop12_nbr_map.end()) {
           continue;
         }
         int tmp = hop12_nbr_map[cur_id];
-        if( modified[tmp]) LOG(INFO) << cur_id << " " << cur_page;
         assert( modified[tmp] == false);
         modified[tmp] = true;
+        if( id_edge_from[tmp].empty()) {
+          continue;
+        }
         if( id2loc(cur_id) == kInvalidID || deletion_set->find(cur_id) != deletion_set->end()) {
           continue;
         }
-        assert( cur_id != kAllocatedID);
-        merge_prune( cur_page_buf, cur_id, id_edge_from[tmp]);
-      }
-      // std::unique_ptr<uint8_t []> tmptmp = std::make_unique<uint8_t []>(SECTOR_LEN);
-      uint64_t write_page = (uint64_t) alloc_1page();
-      page_lock_table.wrlock( write_page);
-      nxt_write_req.clear();
-      nxt_write_req.emplace_back( write_page * SECTOR_LEN, size_per_io, cur_page_buf, 0, 0);
-      reader->wbc_write( nxt_write_req, ctx);
-      auto locked = lock_idx(idx_lock_table, kInvalidID, layout);
-      for (uint32_t i = 0; i < layout.size(); ++i) {
-        // set_loc2id( sector_to_loc( cur_page, i), kInvalidID);
-        set_loc2id( sector_to_loc( write_page, i), layout[i]);
-        if( layout[i] == kInvalidID || deletion_set->find(layout[i]) != deletion_set->end()) {
-          continue;
+        // id2check.push_back( cur_id);
+        for( auto &nbr : id_edge_from[tmp]) {
+          page_append.emplace_back( cur_id, nbr);
         }
-        set_id2loc( layout[i], sector_to_loc( write_page, i));
       }
-
-      unlock_idx(idx_lock_table, locked);
-      page2deref.clear();
-      reader->write(nxt_write_req, ctx);
-      // unlock_idx(idx_lock_table, locked);
-      page2deref.push_back( cur_page);
-      page2deref.push_back( write_page);
-      reader->deref( &page2deref, ctx);
-      empty_pages.push( cur_page);
+      for( unsigned j = 0; j < page_append.size(); j++) {
+        bool check_merge = (j==page_append.size()-1) ? true : false;
+        l1_table_->add_backlink( page_append[j].first, page_append[j].second, 
+                                 deletion_set, check_merge, &id2check);
+      }
       page_lock_table.unlock( cur_page);
-      page_lock_table.unlock( write_page);
     }
     aligned_free( read_data->onehop_buf);
-    aligned_free( read_data->update_buf);
     read_data->onehop_buf = nullptr;
-    read_data->update_buf = nullptr;
     del_loc = optimize_lock_id( del_id, true);
     del_page_no = loc_sector_no( del_loc);
     idx_lock_table.wrlock( del_id);
     set_id2loc( del_id, kInvalidID);
-    // set_loc2id( del_loc, kInvalidID);
+    set_loc2id( del_loc, kInvalidID);
     idx_lock_table.unlock( del_id);
     page_lock_table.unlock( del_page_no);
     this->push_query_buf(read_data);

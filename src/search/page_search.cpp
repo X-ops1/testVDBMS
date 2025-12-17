@@ -72,10 +72,20 @@ namespace pipeann {
       unsigned nnbrs = *(node_nbrs++);
       unsigned nbors_cand_size = 0;
       for (unsigned m = 0; m < nnbrs; ++m) {
-        if (visited.find(node_nbrs[m]) == visited.end()) {
-          node_nbrs[nbors_cand_size++] = node_nbrs[m];
-          visited.insert(node_nbrs[m]);
+        // if (visited.find(node_nbrs[m]) == visited.end()) {
+        //   node_nbrs[nbors_cand_size++] = node_nbrs[m];
+        //   visited.insert(node_nbrs[m]);
+        // }
+        if (visited.find(node_nbrs[m]) != visited.end()) {
+          continue;
         }
+        idx_lock_table.rdlock( node_nbrs[m]);
+        if( id2loc( node_nbrs[m]) == kInvalidID) {
+          continue;
+        }
+        idx_lock_table.unlock( node_nbrs[m]);
+        node_nbrs[nbors_cand_size++] = node_nbrs[m];
+        visited.insert(node_nbrs[m]);
       }
       if (nbors_cand_size) {
         nbr_handler->compute_dists(query_buf, node_nbrs, nbors_cand_size);

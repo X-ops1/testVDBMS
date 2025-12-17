@@ -27,7 +27,7 @@ class L1NeighborTable {
  public:
   using NodeId = uint32_t;
 
-  using MergeHook = std::function<void(NodeId)>;
+  using MergeHook = std::function<void(NodeId, tsl::robin_set<uint32_t> *)>;
   // 注册当某个 v 的 L1[v] 达到 merge 阈值（这里用 fanout_B_）时的回调。
   // 由 SSDIndex 在 set_l1_table 时设置，典型实现是调用 SSDIndex::enqueue_merge_node(v)。
   void set_merge_hook(const MergeHook &hook) {
@@ -68,7 +68,8 @@ class L1NeighborTable {
   //
   //   l1->add_backlink(v, new_id, light_prune_lambda);
   
-  bool add_backlink(NodeId v, NodeId new_id) {
+  bool add_backlink(NodeId v, NodeId new_id, tsl::robin_set<uint32_t> *deletion_set,
+                    bool check_merge = true, std::vector<uint32_t> *check_list=nullptr) {
 
     if (v >= nodes_.size()) {
       // 越界：调用方应该保证 num_nodes 足够大。
@@ -94,21 +95,32 @@ class L1NeighborTable {
     // 这里仅在 L1[v] 的长度达到 merge 阈值（默认 fanout_B_）时，
     // 触发一次 merge 回调。
     bool trigger_merge = false;
-    if (merge_hook_ && delta.neighbors.size() >= fanout_B_) {
-      trigger_merge = true;
+    // if (merge_hook_ && delta.neighbors.size() >= fanout_B_) {
+    //   trigger_merge = true;
+    // }
+    if( check_merge) {
+      uint32_t total = 0;
+      for( auto cur_id : *check_list) {
+        // if (merge_hook_ && nodes_[cur_id].neighbors.size() >= fanout_B_) {
+        //   trigger_merge = true;
+        //   break;
+        // }
+        total += nodes_[cur_id].neighbors.size();
+      }
+      if( total > 6 * fanout_B_) trigger_merge = true;
     }
 
     // 如果之前是空的，现在非空了，记录到 active_nodes_ 里，方便后台遍历。
-    if (was_empty && !delta.neighbors.empty()) {
-      std::lock_guard<std::mutex> g(active_nodes_mtx_);
-      active_nodes_.insert(v);
-    }
+    // if (was_empty && !delta.neighbors.empty()) {
+    //   std::lock_guard<std::mutex> g(active_nodes_mtx_);
+    //   active_nodes_.insert(v);
+    // }
 
     // 释放 L1[v] 的锁，再调用外部回调，避免死锁。
     guard.unlock();
 
     if (trigger_merge && merge_hook_) {
-      merge_hook_(v);
+      merge_hook_(v, deletion_set);
     }
 
     return true;
