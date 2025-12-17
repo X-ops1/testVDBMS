@@ -436,11 +436,11 @@ namespace pipeann {
       if (loc == kInvalidID) {
         continue;
       }
-      // if (this->loc_sector_no(loc) != cur_page) {
+      // if (this->loc_sector_no(loc) != center_page) {
       //   continue;  // 双重保险：只搬这一页上的点
       // }
       assert( loc < this->cur_loc);
-      assert( loc_sector_no(loc) == cur_page);
+      assert( loc_sector_no(loc) == center_page);
       ids.push_back(vid);
       old_locs.push_back(loc);
     }
@@ -485,7 +485,7 @@ namespace pipeann {
       uint64_t loc = old_locs[idx];
 
       // 再次确认 loc 还在这一页（防御性检查）
-      // if (loc >= this->cur_loc || this->loc_sector_no(loc) != cur_page) {
+      // if (loc >= this->cur_loc || this->loc_sector_no(loc) != center_page) {
       //   continue;
       // }
       assert( loc < this->cur_loc && loc_sector_no(loc) == center_page);
@@ -498,92 +498,169 @@ namespace pipeann {
       uint32_t old_deg = node.nnbrs;
       uint32_t *old_nbrs = node.nbrs;
 
-      // 5.1 旧 L0 邻居
-      std::vector<uint32_t> cand;
-      cand.reserve(old_deg + 32);
+
+      // 5.x 先拿旧的 L0 邻居
+      std::vector<uint32_t> cur_nhood;
+      cur_nhood.reserve(std::min<uint32_t>(old_deg, this->range));
+
       for (uint32_t i = 0; i < old_deg; ++i) {
         uint32_t nbr = old_nbrs[i];
-        assert( nbr != id);
-        // if (nbr != id) {
-        //   cand.push_back(nbr);
-        // }
-        assert( nbr != kInvalidID);
-        assert( nbr != kAllocatedID);
-        idx_lock_table.rdlock( nbr);
-        if( id2loc( nbr) != kInvalidID) {
-          cand.push_back(nbr);
-        }
-        idx_lock_table.unlock( nbr);
+        if (nbr == kInvalidID || nbr == kAllocatedID || nbr == id) continue;
+        // 过滤已经被删掉/无效的点：用 idx_lock_table + id2loc 判一下
+        idx_lock_table.rdlock(nbr);
+        bool ok = (this->id2loc(nbr) != kInvalidID);
+        idx_lock_table.unlock(nbr);
+
+        if (ok) cur_nhood.push_back(nbr);
       }
 
-      // 5.2 把 L1[id] 的增量邻居抽干并追加到候选里
+      // 去重（L0 理论上不该重复）
+      std::sort(cur_nhood.begin(), cur_nhood.end());
+      cur_nhood.erase(std::unique(cur_nhood.begin(), cur_nhood.end()), cur_nhood.end());
+
+      // 5.y 抽干 L1[id] 的增量邻居，然后逐个 new_id做 delta prune
       if (l1 != nullptr) {
-        std::vector<uint32_t> delta;
-        l1->drain_neighbors(id, delta);  // L1[id] -> delta，并清空 L1[id]
-        // cand.insert(cand.end(), delta.begin(), delta.end());
-        for( auto nbr : delta) {
-          assert( nbr != kInvalidID);
-          assert( nbr != kAllocatedID);
-          idx_lock_table.rdlock( nbr);
-          if( id2loc( nbr) != kInvalidID) {
-            cand.push_back(nbr);
+        std::vector<uint32_t> delta_raw;
+        l1->drain_neighbors(id, delta_raw);  // L1[id] -> delta_raw，并清空 L1[id]
+
+        if (!delta_raw.empty()) {
+          // 去重 + 过滤 self/非法
+          std::sort(delta_raw.begin(), delta_raw.end());
+          delta_raw.erase(std::unique(delta_raw.begin(), delta_raw.end()), delta_raw.end());
+
+          for (uint32_t new_id : delta_raw) {
+            if (new_id == kInvalidID || new_id == kAllocatedID || new_id == id) continue;
+
+            // 过滤已删除/无效
+            idx_lock_table.rdlock(new_id);
+            bool ok = (this->id2loc(new_id) != kInvalidID);
+            idx_lock_table.unlock(new_id);
+            if (!ok) continue;
+
+            // 如果已经在当前邻居里，就跳过
+            if (std::find(cur_nhood.begin(), cur_nhood.end(), new_id) != cur_nhood.end()) {
+              continue;
+            }
+
+            if (cur_nhood.size() < this->range) {
+              // 还没满，直接塞进去
+              cur_nhood.push_back(new_id);
+            } else {
+              // 已经满 range：组一个 range+1 的池子，用 delta_prune 选出要保留的 range 个
+              std::vector<uint32_t> pool = cur_nhood;
+              pool.push_back(new_id);
+
+              // 这里复用封装，内部会构造 TriangleNeighbor 并调用 delta_prune_neighbors_pq
+              this->prune_l1_delta(id, new_id, pool, thread_pq_buf);
+
+              // pool 现在应该变回 range 个
+              cur_nhood.swap(pool);
+            }
           }
-          idx_lock_table.unlock( nbr);
         }
       }
 
-      assert( new_nhood_set.size() > 0);
-      if (cand.empty()) {
-        node.nnbrs = 0;
-        *(node.nbrs - 1) = 0;
-        continue;
-      }
-
-      // 5.3 去重 + 去 self-loop
-      std::sort(cand.begin(), cand.end());
-      cand.erase(std::unique(cand.begin(), cand.end()), cand.end());
-      cand.erase(std::remove(cand.begin(), cand.end(), id), cand.end());
-
-      if (cand.empty()) {
-        node.nnbrs = 0;
-        *(node.nbrs - 1) = 0;
-        continue;
-      }
-
-      if (cand.size() > MAX_N_EDGES) {
-        cand.resize(MAX_N_EDGES);
-      }
-
-      // 5.4 PQ 剪枝
-      std::vector<uint32_t> new_nhood;
-      new_nhood.reserve(cand.size());
-
-      if (cand.size() <= this->range) {
-        new_nhood.assign(cand.begin(), cand.end());
-      } else {
-        std::vector<float> dists(cand.size(), 0.0f);
-        std::vector<Neighbor> pool(cand.size());
-
-        this->nbr_handler->compute_dists(
-            id, cand.data(), cand.size(), dists.data(), thread_pq_buf);
-
-        for (uint32_t k = 0; k < cand.size(); ++k) {
-          pool[k].id = cand[k];
-          pool[k].distance = dists[k];
-        }
-        std::sort(pool.begin(), pool.end());
-        if (pool.size() > this->maxc) {
-          pool.resize(this->maxc);
-        }
-
-        this->prune_neighbors_pq(pool, new_nhood, thread_pq_buf);
-      }
-
-      node.nnbrs = static_cast<uint32_t>(new_nhood.size());
+      // 5.z 最终写回（允许为空）
+      node.nnbrs = static_cast<uint32_t>(cur_nhood.size());
       *(node.nbrs - 1) = node.nnbrs;
       if (node.nnbrs > 0) {
-        memcpy(node.nbrs, new_nhood.data(), node.nnbrs * sizeof(uint32_t));
+        memcpy(node.nbrs, cur_nhood.data(), node.nnbrs * sizeof(uint32_t));
       }
+
+      // // 5.1 旧 L0 邻居
+      // std::vector<uint32_t> cand;
+      // cand.reserve(old_deg + 32);
+      // for (uint32_t i = 0; i < old_deg; ++i) {
+      //   uint32_t nbr = old_nbrs[i];
+      //   assert( nbr != id);
+      //   // if (nbr != id) {
+      //   //   cand.push_back(nbr);
+      //   // }
+      //   assert( nbr != kInvalidID);
+      //   assert( nbr != kAllocatedID);
+      //   idx_lock_table.rdlock( nbr);
+      //   if( id2loc( nbr) != kInvalidID) {
+      //     cand.push_back(nbr);
+      //   }
+      //   idx_lock_table.unlock( nbr);
+      // }
+
+      // // 5.2 把 L1[id] 的增量邻居抽干并追加到候选里
+      // if (l1 != nullptr) {
+      //   std::vector<uint32_t> delta;
+      //   l1->drain_neighbors(id, delta);  // L1[id] -> delta，并清空 L1[id]
+      //   // cand.insert(cand.end(), delta.begin(), delta.end());
+      //   for( auto nbr : delta) {
+      //     assert( nbr != kInvalidID);
+      //     assert( nbr != kAllocatedID);
+      //     idx_lock_table.rdlock( nbr);
+      //     if( id2loc( nbr) != kInvalidID) {
+      //       cand.push_back(nbr);
+      //     }
+      //     idx_lock_table.unlock( nbr);
+      //   }
+      // }
+
+      // assert( cand.size() > 0);
+      // if (cand.empty()) {
+      //   node.nnbrs = 0;
+      //   *(node.nbrs - 1) = 0;
+      //   continue;
+      // }
+
+      // // 5.3 去重 + 去 self-loop
+      // std::sort(cand.begin(), cand.end());
+      // cand.erase(std::unique(cand.begin(), cand.end()), cand.end());
+      // cand.erase(std::remove(cand.begin(), cand.end(), id), cand.end());
+
+      // if (cand.empty()) {
+      //   node.nnbrs = 0;
+      //   *(node.nbrs - 1) = 0;
+      //   continue;
+      // }
+
+      // if (cand.size() > MAX_N_EDGES) {
+      //   cand.resize(MAX_N_EDGES);
+      // }
+
+      // // 5.4 PQ 剪枝
+      // std::vector<uint32_t> new_nhood;
+      // new_nhood.reserve(cand.size());
+
+      // if (cand.size() <= this->range) {
+      //   new_nhood.assign(cand.begin(), cand.end());
+      // } else {
+      //   std::vector<float> dists(cand.size(), 0.0f);
+      //   std::vector<Neighbor> pool(cand.size());
+
+      //   this->nbr_handler->compute_dists(
+      //       id, cand.data(), cand.size(), dists.data(), thread_pq_buf);
+
+      //   for (uint32_t k = 0; k < cand.size(); ++k) {
+      //     pool[k].id = cand[k];
+      //     pool[k].distance = dists[k];
+      //   }
+      //   std::sort(pool.begin(), pool.end());
+      //   if (pool.size() > this->maxc) {
+      //     pool.resize(this->maxc);
+      //   }
+
+      //   this->prune_neighbors_pq(pool, new_nhood, thread_pq_buf);
+      // }
+
+      // if (cand.size() <= this->range) {
+      //   // 候选数≤range，直接保留全部
+      //   new_nhood.assign(cand.begin(), cand.end());
+      // } else {
+      //   // 候选数>range，直接截取前range个
+      //   new_nhood.assign(cand.begin(), cand.begin() + this->range);
+      // }
+
+      // node.nnbrs = static_cast<uint32_t>(new_nhood.size());
+      // *(node.nbrs - 1) = node.nnbrs;
+      // if (node.nnbrs > 0) {
+      //   memcpy(node.nbrs, new_nhood.data(), node.nnbrs * sizeof(uint32_t));
+      // }
     }
     this->push_query_buf( buf);
 
@@ -597,7 +674,7 @@ namespace pipeann {
     reader->wbc_write( nxt_write_req, ctx);
     auto locked = lock_idx(idx_lock_table, kInvalidID, ids);
     for (uint32_t i = 0; i < ids.size(); ++i) {
-      // set_loc2id( sector_to_loc( cur_page, i), kInvalidID);
+      // set_loc2id( sector_to_loc( center_page, i), kInvalidID);
       assert( ids[i] != kInvalidID);
       set_loc2id( sector_to_loc( write_page, i), ids[i]);
       set_id2loc( ids[i], sector_to_loc( write_page, i));
