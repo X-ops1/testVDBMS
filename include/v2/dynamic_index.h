@@ -25,7 +25,7 @@ namespace pipeann {
     - parameters: Parameters object with configuration of on-disk index.
     */
     DynamicSSDIndex(Parameters &parameters, const std::string disk_prefix_in, const std::string disk_prefix_out,
-                    Distance<T> *dist, pipeann::Metric disk_metric, int search_mode = BEAM_SEARCH,
+                    Distance<T> *dist, pipeann::Metric disk_metric, /*int search_mode = BEAM_SEARCH,*/ int search_mode = PAGE_SEARCH,
                     bool use_mem_index = false);
 
     ~DynamicSSDIndex();

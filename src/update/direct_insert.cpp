@@ -186,7 +186,7 @@ namespace pipeann {
     auto *l1 = this->l1_table_;
     if (l1 != nullptr) {
       for (auto v : new_nhood) {
-        l1->add_backlink(v, new_id);
+        l1->add_backlink(v, new_id, deletion_set);
       }
     }
     // -------- 4.4 清理、返回 --------

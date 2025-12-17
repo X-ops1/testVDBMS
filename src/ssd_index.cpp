@@ -396,61 +396,40 @@ namespace pipeann {
   }
 
   template<typename T, typename TagT>
-  void SSDIndex<T, TagT>::merge_page_for_node_inline(uint32_t center) {
+  void SSDIndex<T, TagT>::merge_page_for_node_inline(uint32_t center, tsl::robin_set<uint32_t> *deletion_set) {
   #if SSD_L1_MERGE_MODE == SSD_L1_MERGE_INLINE_PAGE
     // 0. 简单过滤非法 id
-    // if (center >= this->num_points) {
-    //   return;
-    // }
     assert( center < this->num_points);
-    // assert( page_lock_table.size() == 0);
 
     // 1. 找到 center 所在页
-    // uint64_t page = this->id2page(center);
-    // if (page == kInvalidID) {
-    //   LOG(WARNING) << "[MERGE][INLINE] center=" << center
-    //               << " has invalid page, skip.";
-    //   return;
-    // }
-    uint32_t center_loc = optimize_lock_id( center);
+    uint32_t center_loc = id2loc( center);
     uint64_t center_page = loc_sector_no( center_loc);
-    // if( cur_loc == kInvalidID || deletion_set->find(hop12_nbr_array[i]) != deletion_set->end()) {
-    if( center_loc == kInvalidID) {
-      page_lock_table.unlock( center_page);
-      return;
-    }
 
     // 2. 收集这一页上的所有有效点及其旧 loc
-    auto layout = this->get_page_layout(static_cast<uint32_t>(center_page));
+    // auto layout = this->get_page_layout(static_cast<uint32_t>(center_page));
 
-    std::vector<uint32_t> ids;
-    std::vector<uint64_t> old_locs;
-    ids.reserve(layout.size());
-    old_locs.reserve(layout.size());
+    // std::vector<uint32_t> ids;
+    // std::vector<uint64_t> old_locs;
+    // ids.reserve(layout.size());
+    // old_locs.reserve(layout.size());
 
-    for (uint32_t vid : layout) {
-      if (vid == kInvalidID || vid == kAllocatedID) {
-        continue;
-      }
-      uint64_t loc = this->id2loc(vid);
-      if (loc == kInvalidID) {
-        continue;
-      }
-      // if (this->loc_sector_no(loc) != cur_page) {
-      //   continue;  // 双重保险：只搬这一页上的点
-      // }
-      assert( loc < this->cur_loc);
-      assert( loc_sector_no(loc) == cur_page);
-      ids.push_back(vid);
-      old_locs.push_back(loc);
-    }
-
-    // if (ids.empty()) {
-    //   // LOG(INFO) << "[MERGE][INLINE] page=" << page
-    //   //           << " has no valid nodes, center=" << center;
-    //   return;
+    // for (uint32_t vid : layout) {
+    //   assert( vid != kAllocatedID);
+    //   if (vid == kInvalidID || vid == kAllocatedID ||
+    //       deletion_set->find(vid) != deletion_set->end()) {
+    //     continue;
+    //   }
+    //   uint64_t loc = this->id2loc(vid);
+    //   if (loc == kInvalidID) {
+    //     continue;
+    //   }
+    //   assert( loc < this->cur_loc);
+    //   assert( loc_sector_no(loc) == center_page);
+    //   ids.push_back(vid);
+    //   old_locs.push_back(loc);
     // }
-    assert( !ids.empty());
+
+    // assert( !ids.empty());
 
     // 3. 申请 QueryBuffer，当成本次 merge 的 scratch
     QueryBuffer<T> *buf = this->pop_query_buf(nullptr);
@@ -461,130 +440,199 @@ namespace pipeann {
     void *ctx = reader->get_ctx();
 
     // 4. 页级锁 + 读入这一页
-    // char *page_buf = nullptr;
-    // // remember free!!
-    // pipeann::alloc_aligned( (void **) &page_buf, size_per_io, SECTOR_LEN);
     std::vector<IORequest> nxt_read_req;
     nxt_read_req.emplace_back( center_page * SECTOR_LEN, this->size_per_io, sector_buf, 0, 0);
-    // std::vector<uint64_t> pages_locked =
-    //     v2::lockReqs(this->page_lock_table, pages_to_rmw);
     reader->read_alloc( nxt_read_req, ctx);
 
-    // std::vector<IORequest> reads;
-    // reads.emplace_back(
-    //     IORequest(page * SECTOR_LEN, this->size_per_io, sector_buf, 0, 0));
-    // std::vector<uint64_t> read_page_ref;
-    // reader->read_alloc(reads, ctx, &read_page_ref);
+    auto merge_prune = [&]( char *page_buf, unsigned target_id,
+                            std::vector<unsigned> &append_nbr) {
+      char *node_buf = offset_to_node( page_buf, target_id);
+      unsigned *old_nhood = offset_to_node_nhood( node_buf);
+      unsigned old_size = *old_nhood;
+      old_nhood += 1;
+      std::set<unsigned> new_nhood_set;
+      for( unsigned k = 0; k < old_size; k++) {
+        idx_lock_table.rdlock( old_nhood[k]);
+        if( id2loc( old_nhood[k]) != kInvalidID && deletion_set->find(old_nhood[k]) == deletion_set->end()) {
+          assert( old_nhood[k] != kInvalidID);
+          assert( old_nhood[k] != kAllocatedID);
+          new_nhood_set.insert( old_nhood[k]);
+        }
+        idx_lock_table.unlock( old_nhood[k]);
+      }
+      for( auto &new_nbr : append_nbr) {
+        idx_lock_table.rdlock( new_nbr);
+        if( id2loc( new_nbr) != kInvalidID && deletion_set->find(new_nbr) == deletion_set->end()) {
+          assert( new_nbr != kInvalidID);
+          assert( new_nbr != kAllocatedID);
+          new_nhood_set.insert( new_nbr);
+        }
+        idx_lock_table.unlock( new_nbr);
+      }
+      std::vector<unsigned> new_nhood( new_nhood_set.begin(), new_nhood_set.end());
+      unsigned new_size = new_nhood.size();
+      // if ( new_size > this->range) {
+      //   std::vector<float> dists(new_nhood.size(), 0.0f);
+      //   std::vector<Neighbor> pool(new_nhood.size());
+      //   // Use dynamic buffer instead of pre-initialized buffer to save space.
+      //   uint8_t *pq_buf = nullptr;
+      //   pipeann::alloc_aligned((void **) &pq_buf, new_nhood.size() * AbstractNeighbor<T>::MAX_BYTES_PER_NBR, 256);
+      //   nbr_handler->compute_dists( target_id, new_nhood.data(), new_nhood.size(), dists.data(), pq_buf);
+      //   for (uint32_t k = 0; k < new_nhood.size(); k++) {
+      //     pool[k].id = new_nhood[k];
+      //     pool[k].distance = dists[k];
+      //   }
+      //   std::sort(pool.begin(), pool.end());
+      //   if (pool.size() > this->maxc) {
+      //     pool.resize(this->maxc);
+      //   }
+      //   new_nhood.clear();
+      //   this->prune_neighbors_pq(pool, new_nhood, pq_buf);
+      //   pipeann::aligned_free(pq_buf);
+      // }
+      // unsigned final_size = std::min( this->range, new_size);
+      // unsigned *nhood_buf = offset_to_node_nhood( node_buf);
+      // *nhood_buf = final_size;
+      // memcpy( nhood_buf + 1, new_nhood.data(), final_size * sizeof( unsigned));
+
+      std::vector<float> new_nbr_dists( new_size, 0.0f);
+      nbr_handler->compute_dists( target_id, new_nhood.data(), new_size, 
+                                  new_nbr_dists.data(), thread_pq_buf);
+      std::vector<std::pair<float, unsigned>> pool;
+      pool.reserve( new_size);
+      for( unsigned k = 0; k < new_size; k++) {
+        pool.emplace_back( new_nbr_dists[k], new_nhood[k]);
+      }
+      std::sort( pool.begin(), pool.end());
+      unsigned final_size = std::min( this->range, new_size);
+      new_nhood.resize( final_size);
+      for( unsigned k = 0; k < final_size; k++) {
+        new_nhood[k] = pool[k].second;
+      }
+      unsigned *nhood_buf = offset_to_node_nhood( node_buf);
+      *nhood_buf = final_size;
+      memcpy( nhood_buf + 1, new_nhood.data(), final_size * sizeof( unsigned));
+    };
+
+    auto *l1 = this->l1_table_;
+    PageArr layout = get_page_layout(center_page);
+    for( auto &cur_id : layout) {
+      if( cur_id == kInvalidID) {
+        continue;
+      }
+      if( id2loc(cur_id) == kInvalidID || deletion_set->find(cur_id) != deletion_set->end()) {
+        continue;
+      }
+      assert( cur_id != kAllocatedID);
+      std::vector<uint32_t> delta;
+      l1->drain_neighbors( cur_id, delta);  // L1[id] -> delta，并清空 L1[id]
+      merge_prune( sector_buf, cur_id, delta);
+    }
 
     // 5. 对这一页上的每个点做「L0 + L1 → 重剪枝」，只改 sector_buf，不写回旧页
-    auto *l1 = this->l1_table_;
-    // LOG(INFO) << "1";
+    // auto *l1 = this->l1_table_;
 
-    for (size_t idx = 0; idx < ids.size(); ++idx) {
-      uint32_t id = ids[idx];
-      uint64_t loc = old_locs[idx];
+    // for (size_t idx = 0; idx < ids.size(); ++idx) {
+    //   uint32_t id = ids[idx];
+    //   uint64_t loc = old_locs[idx];
 
-      // 再次确认 loc 还在这一页（防御性检查）
-      // if (loc >= this->cur_loc || this->loc_sector_no(loc) != cur_page) {
-      //   continue;
-      // }
-      assert( loc < this->cur_loc && loc_sector_no(loc) == center_page);
+    //   // 再次确认 loc 还在这一页（防御性检查）
+    //   assert( loc < this->cur_loc && loc_sector_no(loc) == center_page);
 
-      char *node_buf = this->offset_to_loc(sector_buf, loc);
-      DiskNode<T> node(id,
-                      this->offset_to_node_coords(node_buf),
-                      this->offset_to_node_nhood(node_buf));
+    //   char *node_buf = this->offset_to_loc(sector_buf, loc);
+    //   DiskNode<T> node(id,
+    //                   this->offset_to_node_coords(node_buf),
+    //                   this->offset_to_node_nhood(node_buf));
 
-      uint32_t old_deg = node.nnbrs;
-      uint32_t *old_nbrs = node.nbrs;
+    //   uint32_t old_deg = node.nnbrs;
+    //   uint32_t *old_nbrs = node.nbrs;
 
-      // 5.1 旧 L0 邻居
-      std::vector<uint32_t> cand;
-      cand.reserve(old_deg + 32);
-      for (uint32_t i = 0; i < old_deg; ++i) {
-        uint32_t nbr = old_nbrs[i];
-        assert( nbr != id);
-        // if (nbr != id) {
-        //   cand.push_back(nbr);
-        // }
-        assert( nbr != kInvalidID);
-        assert( nbr != kAllocatedID);
-        idx_lock_table.rdlock( nbr);
-        if( id2loc( nbr) != kInvalidID) {
-          cand.push_back(nbr);
-        }
-        idx_lock_table.unlock( nbr);
-      }
+    //   // 5.1 旧 L0 邻居
+    //   std::vector<uint32_t> cand;
+    //   cand.reserve(old_deg + 32);
+    //   for (uint32_t i = 0; i < old_deg; ++i) {
+    //     uint32_t nbr = old_nbrs[i];
+    //     assert( nbr != id);
+    //     assert( nbr != kInvalidID);
+    //     assert( nbr != kAllocatedID);
+    //     idx_lock_table.rdlock( nbr);
+    //     if( id2loc( nbr) != kInvalidID && deletion_set->find( nbr) == deletion_set->end()) {
+    //       cand.push_back(nbr);
+    //     }
+    //     idx_lock_table.unlock( nbr);
+    //   }
 
-      // 5.2 把 L1[id] 的增量邻居抽干并追加到候选里
-      if (l1 != nullptr) {
-        std::vector<uint32_t> delta;
-        l1->drain_neighbors(id, delta);  // L1[id] -> delta，并清空 L1[id]
-        // cand.insert(cand.end(), delta.begin(), delta.end());
-        for( auto nbr : delta) {
-          assert( nbr != kInvalidID);
-          assert( nbr != kAllocatedID);
-          idx_lock_table.rdlock( nbr);
-          if( id2loc( nbr) != kInvalidID) {
-            cand.push_back(nbr);
-          }
-          idx_lock_table.unlock( nbr);
-        }
-      }
+    //   // 5.2 把 L1[id] 的增量邻居抽干并追加到候选里
+    //   if (l1 != nullptr) {
+    //     std::vector<uint32_t> delta;
+    //     l1->drain_neighbors(id, delta);  // L1[id] -> delta，并清空 L1[id]
+    //     // cand.insert(cand.end(), delta.begin(), delta.end());
+    //     for( auto nbr : delta) {
+    //       assert( nbr != kInvalidID);
+    //       assert( nbr != kAllocatedID);
+    //       idx_lock_table.rdlock( nbr);
+    //       if( id2loc( nbr) != kInvalidID && deletion_set->find( nbr) == deletion_set->end()) {
+    //         cand.push_back(nbr);
+    //       }
+    //       idx_lock_table.unlock( nbr);
+    //     }
+    //   }
 
-      assert( new_nhood_set.size() > 0);
-      if (cand.empty()) {
-        node.nnbrs = 0;
-        *(node.nbrs - 1) = 0;
-        continue;
-      }
+    //   assert( cand.size() > 0);
+    //   if (cand.empty()) {
+    //     node.nnbrs = 0;
+    //     *(node.nbrs - 1) = 0;
+    //     continue;
+    //   }
 
-      // 5.3 去重 + 去 self-loop
-      std::sort(cand.begin(), cand.end());
-      cand.erase(std::unique(cand.begin(), cand.end()), cand.end());
-      cand.erase(std::remove(cand.begin(), cand.end(), id), cand.end());
+    //   // 5.3 去重 + 去 self-loop
+    //   std::sort(cand.begin(), cand.end());
+    //   cand.erase(std::unique(cand.begin(), cand.end()), cand.end());
+    //   cand.erase(std::remove(cand.begin(), cand.end(), id), cand.end());
 
-      if (cand.empty()) {
-        node.nnbrs = 0;
-        *(node.nbrs - 1) = 0;
-        continue;
-      }
+    //   assert( cand.size() > 0);
+    //   if (cand.empty()) {
+    //     node.nnbrs = 0;
+    //     *(node.nbrs - 1) = 0;
+    //     continue;
+    //   }
 
-      if (cand.size() > MAX_N_EDGES) {
-        cand.resize(MAX_N_EDGES);
-      }
+    //   assert( cand.size() < MAX_N_EDGES>);
+    //   if (cand.size() > MAX_N_EDGES) {
+    //     cand.resize(MAX_N_EDGES);
+    //   }
 
-      // 5.4 PQ 剪枝
-      std::vector<uint32_t> new_nhood;
-      new_nhood.reserve(cand.size());
+    //   // 5.4 PQ 剪枝
+    //   std::vector<uint32_t> new_nhood;
+    //   new_nhood.reserve(cand.size());
 
-      if (cand.size() <= this->range) {
-        new_nhood.assign(cand.begin(), cand.end());
-      } else {
-        std::vector<float> dists(cand.size(), 0.0f);
-        std::vector<Neighbor> pool(cand.size());
+    //   if (cand.size() <= this->range) {
+    //     new_nhood.assign(cand.begin(), cand.end());
+    //   } else {
+    //     std::vector<float> dists(cand.size(), 0.0f);
+    //     std::vector<Neighbor> pool(cand.size());
 
-        this->nbr_handler->compute_dists(
-            id, cand.data(), cand.size(), dists.data(), thread_pq_buf);
+    //     this->nbr_handler->compute_dists(
+    //         id, cand.data(), cand.size(), dists.data(), thread_pq_buf);
 
-        for (uint32_t k = 0; k < cand.size(); ++k) {
-          pool[k].id = cand[k];
-          pool[k].distance = dists[k];
-        }
-        std::sort(pool.begin(), pool.end());
-        if (pool.size() > this->maxc) {
-          pool.resize(this->maxc);
-        }
+    //     for (uint32_t k = 0; k < cand.size(); ++k) {
+    //       pool[k].id = cand[k];
+    //       pool[k].distance = dists[k];
+    //     }
+    //     std::sort(pool.begin(), pool.end());
+    //     if (pool.size() > this->maxc) {
+    //       pool.resize(this->maxc);
+    //     }
 
-        this->prune_neighbors_pq(pool, new_nhood, thread_pq_buf);
-      }
+    //     this->prune_neighbors_pq(pool, new_nhood, thread_pq_buf);
+    //   }
 
-      node.nnbrs = static_cast<uint32_t>(new_nhood.size());
-      *(node.nbrs - 1) = node.nnbrs;
-      if (node.nnbrs > 0) {
-        memcpy(node.nbrs, new_nhood.data(), node.nnbrs * sizeof(uint32_t));
-      }
-    }
+    //   node.nnbrs = static_cast<uint32_t>(new_nhood.size());
+    //   *(node.nbrs - 1) = node.nnbrs;
+    //   if (node.nnbrs > 0) {
+    //     memcpy(node.nbrs, new_nhood.data(), node.nnbrs * sizeof(uint32_t));
+    //   }
+    // }
     this->push_query_buf( buf);
 
     // 注意：sector_buf 现在是「重剪枝后」的这一页，我们不会再写回旧页，而是搬到新 loc
@@ -595,12 +643,25 @@ namespace pipeann {
     std::vector<IORequest> nxt_write_req;
     nxt_write_req.emplace_back( write_page * SECTOR_LEN, size_per_io, sector_buf, 0, 0);
     reader->wbc_write( nxt_write_req, ctx);
-    auto locked = lock_idx(idx_lock_table, kInvalidID, ids);
-    for (uint32_t i = 0; i < ids.size(); ++i) {
-      // set_loc2id( sector_to_loc( cur_page, i), kInvalidID);
-      assert( ids[i] != kInvalidID);
-      set_loc2id( sector_to_loc( write_page, i), ids[i]);
-      set_id2loc( ids[i], sector_to_loc( write_page, i));
+    // auto locked = lock_idx(idx_lock_table, kInvalidID, ids);
+    // for (uint32_t i = 0; i < ids.size(); ++i) {
+    //   // set_loc2id( sector_to_loc( cur_page, i), kInvalidID);
+    //   assert( ids[i] != kInvalidID);
+    //   set_loc2id( sector_to_loc( write_page, i), ids[i]);
+    //   set_id2loc( ids[i], sector_to_loc( write_page, i));
+    // }
+    // for( uint32_t i = ids.size(); i < layout.size(); i++) {
+    //   set_loc2id( sector_to_loc( write_page, i), kInvalidID);
+    // }
+    // unlock_idx(idx_lock_table, locked);
+    auto locked = lock_idx(idx_lock_table, kInvalidID, layout);
+    for (uint32_t i = 0; i < layout.size(); ++i) {
+      set_loc2id( sector_to_loc( center_page, i), kInvalidID);
+      set_loc2id( sector_to_loc( write_page, i), layout[i]);
+      if( layout[i] == kInvalidID) {
+        continue;
+      }
+      set_id2loc( layout[i], sector_to_loc( write_page, i));
     }
     unlock_idx(idx_lock_table, locked);
     
@@ -610,7 +671,7 @@ namespace pipeann {
     page2deref.push_back( write_page);
     reader->deref( &page2deref, ctx);
     empty_pages.push( center_page);
-    page_lock_table.unlock( center_page);
+    // page_lock_table.unlock( center_page);
     page_lock_table.unlock( write_page);
 
     // 6. 为这一页上的所有点一次性分配新的 loc
@@ -905,32 +966,95 @@ namespace pipeann {
     return this->num_points;
   }
 
+  // template<typename T, typename TagT>
+  // void SSDIndex<T, TagT>::load_page_layout(const std::string &index_prefix, const uint64_t nnodes_per_sector,
+  //                                          const uint64_t num_points) {
+  //   // 完全忽略 partition 文件，使用等距映射。
+  //   // 这里也干脆去掉 OpenMP 并行，反正只初始化一次，3M 点也就几十毫秒级。
+  //   (void) index_prefix;      // 不再使用 partition.bin
+  //   (void) nnodes_per_sector; // 不再依赖 C
+  //   (void) num_points;        // 使用 this->num_points 更稳妥
+
+  //   // 保险起见，让 num_points / cur_loc 完全由 metadata 决定
+  //   const size_t npts   = static_cast<size_t>(this->num_points);
+  //   const size_t nslots = static_cast<size_t>(this->cur_loc);
+
+  //   id2loc_.assign(npts, 0u);           // 大小 = npts
+  //   loc2id_.assign(nslots, kInvalidID); // 大小 = cur_loc
+
+  //   // 0..(npts-1)：等距映射 id -> loc
+  //   for (size_t i = 0; i < npts; ++i) {
+  //     id2loc_[i] = static_cast<uint32_t>(i);
+  //     loc2id_[i] = static_cast<uint32_t>(i);
+  //   }
+
+  //   // npts..(nslots-1)：是最后一页对齐产生的 padding，统一标为无效
+  //   // 上面 assign 已经全部设成 kInvalidID 了，这里实际上可以不写。
+  //   LOG(INFO) << "Page layout loaded with equal mapping (no per-page reserved slots). "
+  //             << "Npoints=" << npts << " Cur_loc=" << nslots;
+  // }
   template<typename T, typename TagT>
   void SSDIndex<T, TagT>::load_page_layout(const std::string &index_prefix, const uint64_t nnodes_per_sector,
                                            const uint64_t num_points) {
-    // 完全忽略 partition 文件，使用等距映射。
-    // 这里也干脆去掉 OpenMP 并行，反正只初始化一次，3M 点也就几十毫秒级。
-    (void) index_prefix;      // 不再使用 partition.bin
-    (void) nnodes_per_sector; // 不再依赖 C
-    (void) num_points;        // 使用 this->num_points 更稳妥
+    std::string partition_file = index_prefix + "_partition.bin.aligned";
+    id2loc_.resize(num_points);  // pre-allocate space first.
+    loc2id_.resize(cur_loc);     // pre-allocate space first.
 
-    // 保险起见，让 num_points / cur_loc 完全由 metadata 决定
-    const size_t npts   = static_cast<size_t>(this->num_points);
-    const size_t nslots = static_cast<size_t>(this->cur_loc);
+    if (std::filesystem::exists(partition_file)) {
+      LOG(INFO) << "Loading partition file " << partition_file;
+      std::ifstream part(partition_file);
+      uint64_t C, partition_nums, nd;
+      part.read((char *) &C, sizeof(uint64_t));
+      part.read((char *) &partition_nums, sizeof(uint64_t));
+      part.read((char *) &nd, sizeof(uint64_t));
+      if (nnodes_per_sector <= 1 || C != nnodes_per_sector) {
+        // graph reordering is useful only when nnodes_per_sector > 1.
+        LOG(ERROR) << "partition information not correct.";
+        exit(-1);
+      }
+      LOG(INFO) << "Partition meta: C: " << C << " partition_nums: " << partition_nums;
 
-    id2loc_.assign(npts, 0u);           // 大小 = npts
-    loc2id_.assign(nslots, kInvalidID); // 大小 = cur_loc
+      uint64_t page_offset = loc_sector_no(0);
+      auto st = std::chrono::high_resolution_clock::now();
 
-    // 0..(npts-1)：等距映射 id -> loc
-    for (size_t i = 0; i < npts; ++i) {
-      id2loc_[i] = static_cast<uint32_t>(i);
-      loc2id_[i] = static_cast<uint32_t>(i);
+      constexpr uint64_t n_parts_per_read = 1024 * 1024;
+      std::vector<unsigned> part_buf(n_parts_per_read * (1 + nnodes_per_sector));
+      for (uint64_t p = 0; p < partition_nums; p += n_parts_per_read) {
+        uint64_t nxt_p = std::min(p + n_parts_per_read, partition_nums);
+        part.read((char *) part_buf.data(), sizeof(unsigned) * n_parts_per_read * (1 + nnodes_per_sector));
+#pragma omp parallel for schedule(dynamic)
+        for (uint64_t i = p; i < nxt_p; ++i) {
+          uint32_t base = (i - p) * (1 + nnodes_per_sector);
+          uint32_t s = part_buf[base];  // size of this partition
+          for (uint32_t j = 0; j < s; ++j) {
+            uint64_t id = part_buf[base + 1 + j];
+            uint64_t loc = i * nnodes_per_sector + j;
+            id2loc_[id] = loc;
+            loc2id_[loc] = id;
+          }
+          for (uint32_t j = s; j < nnodes_per_sector; ++j) {
+            loc2id_[i * nnodes_per_sector + j] = kInvalidID;
+          }
+        }
+      }
+      auto et = std::chrono::high_resolution_clock::now();
+      LOG(INFO) << "Page layout loaded in " << std::chrono::duration_cast<std::chrono::milliseconds>(et - st).count()
+                << " ms";
+    } else {
+      LOG(INFO) << partition_file << " does not exist, use equal partition mapping";
+// use equal mapping for id2loc and page_layout.
+#ifndef NO_MAPPING
+#pragma omp parallel for
+      for (size_t i = 0; i < this->num_points; ++i) {
+        id2loc_[i] = i;
+        loc2id_[i] = i;
+      }
+      for (size_t i = this->num_points; i < this->cur_loc; ++i) {
+        loc2id_[i] = kInvalidID;
+      }
+#endif
     }
-
-    // npts..(nslots-1)：是最后一页对齐产生的 padding，统一标为无效
-    // 上面 assign 已经全部设成 kInvalidID 了，这里实际上可以不写。
-    LOG(INFO) << "Page layout loaded with equal mapping (no per-page reserved slots). "
-              << "Npoints=" << npts << " Cur_loc=" << nslots;
+    LOG(INFO) << "Page layout loaded.";
   }
 
   template<typename T, typename TagT>

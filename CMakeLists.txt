@@ -30,7 +30,7 @@ add_compile_options(-g -O3 -march=native -mtune=native -ftree-vectorize -funroll
 message("Additional definitions: " $ENV{ADDITIONAL_DEFINITIONS})
 add_definitions(
 	$ENV{ADDITIONAL_DEFINITIONS}
-	-DNDEBUG
+	# -DNDEBUG
 	# -DIN_PLACE_RECORD_UPDATE # disable design #1
 	# -DBG_IO_THREAD # enable opt #1.2
 
