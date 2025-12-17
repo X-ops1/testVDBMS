@@ -64,7 +64,8 @@ namespace pipeann {
     uint32_t base_n = static_cast<uint32_t>(_disk_index->return_nd());
     uint32_t max_npts = 5000000;//最大点数5M
     // 先用磁盘索引的 R 作为 L1 的 B（软上限）
-    uint32_t l1_B = _paras_disk.R; 
+    // uint32_t l1_B = _paras_disk.R; 
+    uint32_t l1_B = 4;
     l1_table_ = new v2::L1NeighborTable(max_npts, l1_B); // 先用最大点数初始化L1表
     _disk_index->set_l1_table(l1_table_);
 
