@@ -1,0 +1,461 @@
+ZYCheng@ideal-PowerEdge-R750:/NV1/czy/testVDBMS$ ./split.sh
+[test_insert_search.cpp:425:INFO] num insert threads: 10
+[test_insert_search.cpp:426:INFO] num search threads: 32
+[test_insert_search.cpp:429:INFO] search mode: 0
+[test_insert_search.cpp:307:INFO] Loading queries
+[ssd_index.cpp:60:INFO] Beamwidth: 4, L: 128, R: 0, C: 384
+[ssd_index.cpp:63:INFO] Use PQNeighbor as neighbor handler.
+[ssd_index.cpp:844:INFO] Copying disk index from /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M to /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow
+[pq_nbr.h:85:INFO] PQ Pivots offset: 0 PQ Vectors offset: 0
+[pq_nbr.h:90:INFO] Load compressed vectors from file: /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_pq_compressed.bin offset: 0 num points: 1000516 n_chunks: 32
+[pq_table.h:127:INFO] Loaded PQ Pivots: #ctrs: 256, #dims: 128, #chunks: 32
+[pq_table.h:186:INFO] Finished optimizing for PQ-PQ distance compuation
+[dynamic_index.cpp:75:INFO] Copy disk index file to /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index
+[ssd_index_defs.h:116:INFO] Loading metadata from disk index, sharded: 0
+[ssd_index_defs.h:99:INFO] Max npts: 1000516 Npoints: 1000516 Entry point: 346643 Data dim: 128 Range: 96
+[ssd_index_defs.h:101:INFO] Max node len: 516 Nnodes per sector: 7 Npts cur shard: 1000516
+[ssd_index.h:114:INFO] Size per IO: 4096
+[ssd_index.h:121:INFO] Cur location: 1000517
+[pq_nbr.h:85:INFO] PQ Pivots offset: 0 PQ Vectors offset: 0
+[pq_nbr.h:90:INFO] Load compressed vectors from file: /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_pq_compressed.bin offset: 0 num points: 1000516 n_chunks: 32
+[pq_table.h:127:INFO] Loaded PQ Pivots: #ctrs: 256, #dims: 128, #chunks: 32
+[pq_table.h:186:INFO] Finished optimizing for PQ-PQ distance compuation
+[ssd_index.cpp:869:INFO] Init buffers for 42 threads, setup 84 buffers.
+[ssd_index.cpp:882:INFO] Setup 10 background I/O threads for insert...
+[ssd_index.cpp:893:INFO] L1 merge worker thread disabled (INLINE_PAGE mode, merge in insert path).
+[ssd_index.cpp:1009:INFO] Page layout loaded with equal mapping (no per-page reserved slots). Npoints=1000516 Cur_loc=1000517
+[ssd_index.cpp:971:INFO] Loading tags from /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index.tags
+[ssd_index.cpp:1020:INFO] Tags file not found. Using equal mapping
+[ssd_index.cpp:976:INFO] SSDIndex loaded successfully.
+[test_insert_search.cpp:320:INFO] Searching before inserts: 
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_0.bin
+[test_insert_search.cpp:53:INFO]  memory current time: 0 RSS : 1.29651e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 558 MB
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_0.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20      7966.3           1.92404        1.89        2.29       2.432       2.816       4.603      93.811     32.5577
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 0, avg disk in top-10 = 10, frac queries with dyn result = 0
+[test_insert_search.cpp:211:INFO] search current time: 1
+[test_insert_search.cpp:340:INFO] Batch: 0 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 0 ed: 1000516
+[test_insert_search.cpp:271:INFO] l_start: 0 r_start: 1000516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[ssd_index.h:592:INFO] Resize id2loc_ to 1500781
+[ssd_index.h:652:INFO] Resize loc2id_ to 1500777
+[test_insert_search.cpp:53:INFO]  memory current time: 6 RSS : 1.94611e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 564 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1012303
+[test_insert_search.cpp:53:INFO]  memory current time: 11 RSS : 1.94611e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 570 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1021389
+[test_insert_search.cpp:53:INFO]  memory current time: 16 RSS : 1.9479e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 575 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1030681
+[test_insert_search.cpp:53:INFO]  memory current time: 21 RSS : 1.95149e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 580 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1040361
+[test_insert_search.cpp:53:INFO]  memory current time: 26 RSS : 1.95776e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 586 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1050118
+[test_insert_search.cpp:53:INFO]  memory current time: 31 RSS : 1.96224e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 591 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1059847
+[test_insert_search.cpp:53:INFO]  memory current time: 36 RSS : 1.96762e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 596 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1069690
+[test_insert_search.cpp:53:INFO]  memory current time: 41 RSS : 1.9712e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 602 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1079798
+[test_insert_search.cpp:53:INFO]  memory current time: 46 RSS : 1.97389e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 607 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1089283
+[test_insert_search.cpp:53:INFO]  memory current time: 51 RSS : 1.97918e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 612 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1098271
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 54.0091s (front-end: 54.0091s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 2970 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4892 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 7334 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 9843 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 12492 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 0
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_100000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_100000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10301.1          0.969778       0.927       1.269       1.356       1.634       2.043       93.55     33.0575
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 0.8708, avg disk in top-10 = 9.1292, frac queries with dyn result = 0.593
+[test_insert_search.cpp:211:INFO] search current time: 56
+[test_insert_search.cpp:340:INFO] Batch: 1 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 100000 ed: 1100516
+[test_insert_search.cpp:271:INFO] l_start: 100000 r_start: 1100516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[test_insert_search.cpp:53:INFO]  memory current time: 61 RSS : 1.98635e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 620 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1111595
+[test_insert_search.cpp:53:INFO]  memory current time: 66 RSS : 1.99262e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 625 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1121344
+[test_insert_search.cpp:53:INFO]  memory current time: 71 RSS : 1.9971e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 631 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1130942
+[test_insert_search.cpp:53:INFO]  memory current time: 76 RSS : 2.00158e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 636 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1140451
+[test_insert_search.cpp:53:INFO]  memory current time: 81 RSS : 2.00786e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 641 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1149909
+[test_insert_search.cpp:53:INFO]  memory current time: 86 RSS : 2.01771e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 647 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1159748
+[test_insert_search.cpp:53:INFO]  memory current time: 91 RSS : 2.0195e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 652 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1169580
+[test_insert_search.cpp:53:INFO]  memory current time: 96 RSS : 2.02662e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 658 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1180325
+[test_insert_search.cpp:53:INFO]  memory current time: 101 RSS : 2.02931e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 664 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1190603
+[test_insert_search.cpp:53:INFO]  memory current time: 106 RSS : 2.03379e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 669 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1199153
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 53.5943s (front-end: 53.5943s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 3108 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4819 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 7104 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 9419 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 11501 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 100000
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_200000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_200000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10372.7          0.947212       0.922       1.274       1.366       1.594       2.036      93.166     33.2085
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 1.5955, avg disk in top-10 = 8.4045, frac queries with dyn result = 0.8183
+[test_insert_search.cpp:211:INFO] search current time: 111
+[test_insert_search.cpp:340:INFO] Batch: 2 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 200000 ed: 1200516
+[test_insert_search.cpp:271:INFO] l_start: 200000 r_start: 1200516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[test_insert_search.cpp:53:INFO]  memory current time: 116 RSS : 2.04006e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 675 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1210870
+[test_insert_search.cpp:53:INFO]  memory current time: 121 RSS : 2.04544e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 681 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1220466
+[test_insert_search.cpp:53:INFO]  memory current time: 126 RSS : 2.04992e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 686 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1230167
+[test_insert_search.cpp:53:INFO]  memory current time: 131 RSS : 2.0553e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 691 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1239742
+[test_insert_search.cpp:53:INFO]  memory current time: 136 RSS : 2.06426e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 697 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1249394
+[test_insert_search.cpp:53:INFO]  memory current time: 141 RSS : 2.06963e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 702 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1259011
+[test_insert_search.cpp:53:INFO]  memory current time: 146 RSS : 2.07859e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 707 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1268626
+[test_insert_search.cpp:53:INFO]  memory current time: 151 RSS : 2.08397e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 713 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1278495
+[test_insert_search.cpp:53:INFO]  memory current time: 156 RSS : 2.09024e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 718 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1288238
+[test_insert_search.cpp:53:INFO]  memory current time: 161 RSS : 2.09562e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 723 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1297264
+[test_insert_search.cpp:53:INFO]  memory current time: 166 RSS : 2.0992e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 725 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1300407
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 55.4353s (front-end: 55.4353s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 3164 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4948 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 7336 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 9724 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 11948 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 200000
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_300000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_300000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10235.8          0.995323       0.958       1.279       1.373       1.618       2.031      92.984     33.5186
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.218, avg disk in top-10 = 7.782, frac queries with dyn result = 0.9136
+[test_insert_search.cpp:211:INFO] search current time: 167
+[test_insert_search.cpp:340:INFO] Batch: 3 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 300000 ed: 1300516
+[test_insert_search.cpp:271:INFO] l_start: 300000 r_start: 1300516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[test_insert_search.cpp:53:INFO]  memory current time: 172 RSS : 2.10278e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 731 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1310648
+[test_insert_search.cpp:53:INFO]  memory current time: 177 RSS : 2.10906e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 736 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1320366
+[test_insert_search.cpp:53:INFO]  memory current time: 182 RSS : 2.11622e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 742 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1330079
+[test_insert_search.cpp:53:INFO]  memory current time: 187 RSS : 2.1225e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 747 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1339772
+[test_insert_search.cpp:53:INFO]  memory current time: 192 RSS : 2.12608e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 753 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1349663
+[test_insert_search.cpp:53:INFO]  memory current time: 197 RSS : 2.13146e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 758 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1359595
+[test_insert_search.cpp:53:INFO]  memory current time: 202 RSS : 2.13683e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 764 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1369661
+[test_insert_search.cpp:53:INFO]  memory current time: 207 RSS : 2.14221e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 770 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1380061
+[test_insert_search.cpp:53:INFO]  memory current time: 212 RSS : 2.17536e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 775 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1390035
+[test_insert_search.cpp:53:INFO]  memory current time: 217 RSS : 2.17715e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 780 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1398749
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 54.5561s (front-end: 54.5561s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 3118 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4850 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 7120 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 9471 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 11793 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 300000
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_400000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_400000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10142.4           1.01493       0.991        1.27       1.373       1.552       1.952      92.826     33.6212
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 2.7586, avg disk in top-10 = 7.2414, frac queries with dyn result = 0.9598
+[test_insert_search.cpp:211:INFO] search current time: 223
+[test_insert_search.cpp:340:INFO] Batch: 4 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 400000 ed: 1400516
+[test_insert_search.cpp:271:INFO] l_start: 400000 r_start: 1400516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[test_insert_search.cpp:53:INFO]  memory current time: 228 RSS : 2.17894e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 787 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1411186
+[test_insert_search.cpp:53:INFO]  memory current time: 233 RSS : 2.18486e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 793 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1421212
+[test_insert_search.cpp:53:INFO]  memory current time: 238 RSS : 2.18666e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 798 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1431134
+[test_insert_search.cpp:53:INFO]  memory current time: 243 RSS : 2.19541e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 804 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1441677
+[test_insert_search.cpp:53:INFO]  memory current time: 248 RSS : 2.19989e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 810 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1452410
+[test_insert_search.cpp:53:INFO]  memory current time: 253 RSS : 2.20616e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 816 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1462895
+[test_insert_search.cpp:53:INFO]  memory current time: 258 RSS : 2.21244e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 822 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1473878
+[test_insert_search.cpp:53:INFO]  memory current time: 263 RSS : 2.22229e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 828 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1485360
+[test_insert_search.cpp:53:INFO]  memory current time: 268 RSS : 2.22856e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 835 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1496716
+[test_insert_search.cpp:53:INFO]  memory current time: 273 RSS : 2.23125e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 837 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1500444
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 50.3172s (front-end: 50.3172s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 2939 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4499 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 6570 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 8806 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 11109 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 400000
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_500000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_500000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10265.1          0.981687        0.96        1.26       1.358       1.531       1.768      92.561     33.9251
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.225, avg disk in top-10 = 6.775, frac queries with dyn result = 0.9819
+[test_insert_search.cpp:211:INFO] search current time: 274
+[test_insert_search.cpp:340:INFO] Batch: 5 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 500000 ed: 1500516
+[test_insert_search.cpp:271:INFO] l_start: 500000 r_start: 1500516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[ssd_index.h:652:INFO] Resize loc2id_ to 2251165
+[ssd_index.h:592:INFO] Resize id2loc_ to 2251171
+[test_insert_search.cpp:53:INFO]  memory current time: 279 RSS : 2.311e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 843 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1511768
+[test_insert_search.cpp:53:INFO]  memory current time: 284 RSS : 2.30883e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 850 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1523174
+[test_insert_search.cpp:53:INFO]  memory current time: 289 RSS : 2.31241e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 855 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1533197
+[test_insert_search.cpp:53:INFO]  memory current time: 294 RSS : 2.31241e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 861 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1543427
+[test_insert_search.cpp:53:INFO]  memory current time: 299 RSS : 2.31241e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 867 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1553912
+[test_insert_search.cpp:53:INFO]  memory current time: 304 RSS : 2.31241e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 873 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1564554
+[test_insert_search.cpp:53:INFO]  memory current time: 309 RSS : 2.31331e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 879 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1575139
+[test_insert_search.cpp:53:INFO]  memory current time: 314 RSS : 2.31868e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 885 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1585920
+[test_insert_search.cpp:53:INFO]  memory current time: 319 RSS : 2.32137e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 891 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1596728
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 47.678s (front-end: 47.678s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 2976 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4522 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 6538 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 8664 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 11263 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 500000
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_600000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_600000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10416.9          0.945341       0.957       1.338       1.448       1.782       2.161      92.363     34.2751
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 3.6371, avg disk in top-10 = 6.3629, frac queries with dyn result = 0.9898
+[test_insert_search.cpp:211:INFO] search current time: 323
+[test_insert_search.cpp:340:INFO] Batch: 6 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 600000 ed: 1600516
+[test_insert_search.cpp:271:INFO] l_start: 600000 r_start: 1600516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[test_insert_search.cpp:53:INFO]  memory current time: 328 RSS : 2.33033e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 898 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1610859
+[test_insert_search.cpp:53:INFO]  memory current time: 333 RSS : 2.33392e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 905 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1621687
+[test_insert_search.cpp:53:INFO]  memory current time: 338 RSS : 2.34193e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 911 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1632575
+[test_insert_search.cpp:53:INFO]  memory current time: 343 RSS : 2.3473e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 917 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1643501
+[test_insert_search.cpp:53:INFO]  memory current time: 348 RSS : 2.35537e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 923 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1654499
+[test_insert_search.cpp:53:INFO]  memory current time: 353 RSS : 2.36343e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 929 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1665460
+[test_insert_search.cpp:53:INFO]  memory current time: 358 RSS : 2.36786e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 935 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1676255
+[test_insert_search.cpp:53:INFO]  memory current time: 363 RSS : 2.37682e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 941 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1687463
+[test_insert_search.cpp:53:INFO]  memory current time: 368 RSS : 2.38219e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 948 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1698696
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 46.6208s (front-end: 46.6208s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 2941 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4454 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 6371 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 8238 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 10119 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 600000
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_700000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_700000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10034.3           1.05027       1.025       1.414       1.531       1.879       2.165      92.091     34.4425
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.0036, avg disk in top-10 = 5.9964, frac queries with dyn result = 0.9944
+[test_insert_search.cpp:211:INFO] search current time: 371
+[test_insert_search.cpp:340:INFO] Batch: 7 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 700000 ed: 1700516
+[test_insert_search.cpp:271:INFO] l_start: 700000 r_start: 1700516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[test_insert_search.cpp:53:INFO]  memory current time: 376 RSS : 2.39026e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 955 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1711430
+[test_insert_search.cpp:53:INFO]  memory current time: 381 RSS : 2.39653e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 961 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1722460
+[test_insert_search.cpp:53:INFO]  memory current time: 386 RSS : 2.40101e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 967 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1733470
+[test_insert_search.cpp:53:INFO]  memory current time: 391 RSS : 2.40814e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 973 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1744588
+[test_insert_search.cpp:53:INFO]  memory current time: 396 RSS : 2.4153e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 979 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1755488
+[test_insert_search.cpp:53:INFO]  memory current time: 401 RSS : 2.42247e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 985 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1766350
+[test_insert_search.cpp:53:INFO]  memory current time: 406 RSS : 2.42785e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 991 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1777369
+[test_insert_search.cpp:53:INFO]  memory current time: 411 RSS : 2.43502e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 998 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1788449
+[test_insert_search.cpp:53:INFO]  memory current time: 416 RSS : 2.44106e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1004 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1799604
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 46.0837s (front-end: 46.0837s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 2937 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4417 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 6286 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 8112 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 9769 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 700000
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_800000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_800000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10086.5           1.04535       1.021       1.407       1.545       1.934       2.169      91.989      34.519
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.333, avg disk in top-10 = 5.667, frac queries with dyn result = 0.9972
+[test_insert_search.cpp:211:INFO] search current time: 418
+[test_insert_search.cpp:340:INFO] Batch: 8 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 800000 ed: 1800516
+[test_insert_search.cpp:271:INFO] l_start: 800000 r_start: 1800516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[test_insert_search.cpp:53:INFO]  memory current time: 423 RSS : 2.44554e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1010 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1811298
+[test_insert_search.cpp:53:INFO]  memory current time: 428 RSS : 2.45181e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1016 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1821773
+[test_insert_search.cpp:53:INFO]  memory current time: 433 RSS : 2.45808e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1022 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1832483
+[test_insert_search.cpp:53:INFO]  memory current time: 438 RSS : 2.476e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1028 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1843256
+[test_insert_search.cpp:53:INFO]  memory current time: 443 RSS : 2.47744e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1034 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1853805
+[test_insert_search.cpp:53:INFO]  memory current time: 448 RSS : 2.48371e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1040 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1864686
+[test_insert_search.cpp:53:INFO]  memory current time: 453 RSS : 2.48908e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1046 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1875642
+[test_insert_search.cpp:53:INFO]  memory current time: 458 RSS : 2.49177e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1052 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1886180
+[test_insert_search.cpp:53:INFO]  memory current time: 463 RSS : 2.49984e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1058 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1896560
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 47.8767s (front-end: 47.8767s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 3033 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4553 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 6487 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 8364 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 10267 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 800000
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_900000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_900000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10106.2           1.03972        1.03       1.395        1.51       1.905       2.285      91.759     34.4403
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.6268, avg disk in top-10 = 5.3732, frac queries with dyn result = 0.9981
+[test_insert_search.cpp:211:INFO] search current time: 467
+[test_insert_search.cpp:340:INFO] Batch: 9 Total Batch : 10
+[test_insert_search.cpp:347:INFO] st: 900000 ed: 1900516
+[test_insert_search.cpp:271:INFO] l_start: 900000 r_start: 1900516 n: 100000
+[test_insert_search.cpp:230:INFO] Begin Insert
+[test_insert_search.cpp:53:INFO]  memory current time: 472 RSS : 2.50969e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1066 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1911429
+[test_insert_search.cpp:53:INFO]  memory current time: 477 RSS : 2.51686e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1072 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1922324
+[test_insert_search.cpp:53:INFO]  memory current time: 482 RSS : 2.51955e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1078 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1933344
+[test_insert_search.cpp:53:INFO]  memory current time: 487 RSS : 2.52761e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1084 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1944066
+[test_insert_search.cpp:53:INFO]  memory current time: 492 RSS : 2.53209e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1090 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1954847
+[test_insert_search.cpp:53:INFO]  memory current time: 497 RSS : 2.53747e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1096 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1965660
+[test_insert_search.cpp:53:INFO]  memory current time: 502 RSS : 2.54464e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1103 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1976538
+[test_insert_search.cpp:53:INFO]  memory current time: 507 RSS : 2.54974e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1109 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1987572
+[test_insert_search.cpp:53:INFO]  memory current time: 512 RSS : 2.55649e+06 KB /NV1/czy/testVDBMS/data&index/BIGANN_1M/index_1M_shadow_disk.index Index size 1115 MB
+[test_insert_search.cpp:361:INFO] Number of vectors: 1998475
+[test_insert_search.cpp:259:INFO] Inserted 100000 points in 46.7799s (front-end: 46.7799s)
+[test_insert_search.cpp:261:INFO] 10p insertion time : 2969 us
+[test_insert_search.cpp:262:INFO] 50p insertion time : 4472 us
+[test_insert_search.cpp:263:INFO] 90p insertion time : 6370 us
+[test_insert_search.cpp:264:INFO] 99p insertion time : 8194 us
+[test_insert_search.cpp:265:INFO] 99.9p insertion time : 9908 us
+[test_insert_search.cpp:372:INFO] Insertions complete!
+
+[test_insert_search.cpp:378:INFO] Search after update, current vector number: 900000
+[test_insert_search.cpp:66:INFO] Truth file name: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_1000000.bin
+[test_insert_search.cpp:111:INFO] current truthfile: /NV1/czy/testVDBMS/data&index/BIGANN_1M/gt/gt_1000000.bin
+  Ls        QPS           Mean Lat      50 Lat      90 Lat      95 Lat      99 Lat    99.9 Lat   Recall@10    Disk IOs
+==============================================================================
+  20     10014.2           1.06736       1.048       1.459       1.616       1.996       2.254      91.658     34.7999
+[test_insert_search.cpp:206:INFO] [DEBUG] avg dyn in top-10 = 4.8923, avg disk in top-10 = 5.1077, frac queries with dyn result = 0.9986
+[test_insert_search.cpp:211:INFO] search current time: 515
+[test_insert_search.cpp:392:INFO] Store the last index to disk.
+[dynamic_index.cpp:182:INFO] Cleared deletion set 1 - ready to accept new points
+[delete_merge.cpp:52:INFO] Cur loc: 2000635, cur ID: 2000516, n_sectors: 285805, nnodes_per_sector: 7
+[delete_merge.cpp:102:INFO] Finished populating neighborhoods, totally elapsed: 1538.39ms, new npoints: 2000635 id_map size: 2000516
+[delete_merge.cpp:104:INFO] Deleted nodes size: 0, deleted_nhoods size: 0
+[delete_merge.cpp:209:INFO] Processed 65536/285805 sectors, n_used_id: 458752.
+[delete_merge.cpp:121:INFO] Write back 458752/458752 IDs.
+[delete_merge.cpp:209:INFO] Processed 131072/285805 sectors, n_used_id: 917504.
+[delete_merge.cpp:121:INFO] Write back 917504/917504 IDs.
+[delete_merge.cpp:209:INFO] Processed 196608/285805 sectors, n_used_id: 1376256.
+[delete_merge.cpp:121:INFO] Write back 1376256/1376256 IDs.
+[delete_merge.cpp:209:INFO] Processed 262144/285805 sectors, n_used_id: 1835008.
+[delete_merge.cpp:121:INFO] Write back 1835008/1835008 IDs.
+[delete_merge.cpp:209:INFO] Processed 285805/285805 sectors, n_used_id: 2000635.
+[delete_merge.cpp:121:INFO] Write back 2000635/2000635 IDs.
+[delete_merge.cpp:218:INFO] Write nhoods finished, totally elapsed 9625.99ms.
+[ssd_index_defs.h:99:INFO] Max npts: 2000635 Npoints: 2000635 Entry point: 304229 Data dim: 128 Range: 96
+[ssd_index_defs.h:101:INFO] Max node len: 516 Nnodes per sector: 7 Npts cur shard: 2000635
+[delete_merge.cpp:254:INFO] Write metadata and PQ finished, totally elapsed 9812.59ms.
+[ssd_index_defs.h:116:INFO] Loading metadata from disk index, sharded: 0
+[ssd_index_defs.h:99:INFO] Max npts: 2000635 Npoints: 2000635 Entry point: 304229 Data dim: 128 Range: 96
+[ssd_index_defs.h:101:INFO] Max node len: 516 Nnodes per sector: 7 Npts cur shard: 2000635
+[ssd_index.h:114:INFO] Size per IO: 4096
+[ssd_index.h:121:INFO] Cur location: 2000635
+[delete_merge.cpp:302:INFO] Reload finished, cur_id: 2000635, cur_loc: 2000635
+[dynamic_index.cpp:202:INFO] Merge time : 9829 ms
+[test_insert_search.cpp:398:INFO] Store finished.
